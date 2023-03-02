@@ -1,0 +1,5 @@
+    BBOX = 'BBOX'
+    PIXEL = 'PIXEL'
+    IMAGE = 'IMAGE'
+    FIX = 'FIX'
+    FIX2 = 'FIX2'

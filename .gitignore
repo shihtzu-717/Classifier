@@ -1,0 +1,6 @@
+/log
+/results
+/wandb
+/temp
+checkpoint/convnext_base_22k_224.pth
+checkpoint/convnext_xlarge_22k_224.pth
