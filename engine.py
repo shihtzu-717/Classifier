@@ -142,6 +142,13 @@ def evaluate(data_loader, model, device, use_amp=False):
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
 
+    import os
+    import time
+    tm = time.localtime(time.time())
+    strtm = time.strftime("%m%d_%I%M%S", tm)
+    os.makedirs(f'results/eval_{strtm}/neg', exist_ok=True)
+    os.makedirs(f'results/eval_{strtm}/pos', exist_ok=True)
+
     # switch to evaluation mode
     model.eval()
     
@@ -175,25 +182,24 @@ def evaluate(data_loader, model, device, use_amp=False):
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
 
 ################################################################################ 
-        import os
         import preprocess_data
         import cv2
 
         _, predict = torch.max(output, dim=1)
         for t, p, pth, box in zip(target, predict, path, bbox):
-            os.makedirs('results/eval/neg', exist_ok=True)
-            os.makedirs('results/eval/pos', exist_ok=True)
             pn='neg' if p==0 else 'pos'
-            save_path = f'results/eval/{pn}'
+            save_path = f'results/eval_{strtm}/{pn}'
             save_nm = os.path.join(save_path, f't{t}_p{p}_{os.path.basename(pth)}')
 
             image = cv2.imread(pth)
             x1, y1, x2, y2 =  preprocess_data.xywh2xyxy(box, image.shape[1], image.shape[0])
-            if p == t:
-                image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(0, 0, 255),2)
-            else:
-                image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(255, 0, 0),1)
-            cv2.imwrite(save_nm, image)
+            crop_img = image[y1:y2, x1:x2]
+            cv2.imwrite(save_nm, crop_img)
+            # if p == t:
+            #     image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(0, 0, 255),2)
+            # else:
+            #     image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(255, 0, 0),1)
+            # cv2.imwrite(save_nm, image)
             cnt += 1
 ################################################################################ 
 

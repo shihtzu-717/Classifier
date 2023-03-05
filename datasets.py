@@ -135,11 +135,12 @@ class PotholeDataset(Dataset):
         self.use_bbox = args.use_bbox 
         self.imsave = args.imsave
         self.upsample = args.upsample
+        self.use_class = args.use_class
         
         self.get_crop()
 
     def __len__(self):
-        return len(self.data_set)
+        return self.length
 
     def get_crop(self):
         img_list=[]
@@ -147,6 +148,8 @@ class PotholeDataset(Dataset):
         img_bbox=[]
         label_list=[]
         for v in tqdm(self.data_set, desc='Image Cropping... '):
+            if v.class_id not in self.use_class:
+                continue
             image_path = self.data_path / v.data_set / v.label / v.image_path
             crop_img = preprocess_data.crop_image(
                 image_path = image_path, 
@@ -158,8 +161,9 @@ class PotholeDataset(Dataset):
                 imsave = self.imsave
             )
             crop_img = cv2.resize(crop_img, (self.input_size, self.input_size))
-            color_coverted = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
-            pil_image=Image.fromarray(color_coverted)
+            if (crop_img.shape[-1]==3):
+                crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
+            pil_image=Image.fromarray(crop_img)
 
             # for i in range(self.upsample[v.class_id]):
             img_list.append(pil_image)
@@ -167,6 +171,7 @@ class PotholeDataset(Dataset):
             img_path.append(str(image_path))
             img_bbox.append(torch.tensor(v.bbox))
 
+        self.length = len(img_list)
         self.classes = list(np.sort(np.unique(label_list)))
         self.class_to_idx = {string : i for i, string in enumerate(self.classes)}
         self.input_set = (img_list, img_path, img_bbox, label_list) 

@@ -3,17 +3,20 @@ import os
 base = "python -m torch.distributed.launch --nproc_per_node=2 main.py --lr 1e-6 --use_cropimg=False"
 epochs = 50
 set1_model = "/home/unmanned/results/set_1/b/pad_p_100_bbox_cls012_yp10n1/checkpoint-best.pth"       
-set1_2_model = " /home/unmanned/results/set_2/b/pad_f2_336_shift_cls012_yp24n1tp1/checkpoint-best.pth"
+set1_2_model = "/home/unmanned/results/set_2/b/pad_f2_336_shift_cls012_yp24n1tp1/checkpoint-best.pth"
+models = [set1_model, set1_2_model]
+
 total_model= "/home/daree/code/results/im224_b128_wu0/checkpoint-best.pth"
 
 set1_data = "/home/daree/data/pothole_data/set_1/base_cls012/test/yolo"
 set2_data = "/home/daree/data/pothole_data/set_2/train/base_cls012/test/yolo"
+set3_data = "/home/daree/nas/3rd_data\(Pseudo_label\)"
+raw_data = '/home/daree/data/pothole_data/raw/'
 
 # test
-data = [set1_data, set2_data]
-
 # base = "python main.py --lr 1e-6 --use_cropimg=True --auto_resume=False --drop_path 0.2 --layer_decay 0.8 --data_set image_folder"
 # inputsize = [336, 336]
+# data = [set1_data, set2_data]
 # for i, ckpt in enumerate([set1_model]):
 #     os.system(f"""{base} \
 #             --resume {ckpt} \
@@ -23,16 +26,31 @@ data = [set1_data, set2_data]
 #             --eval True""")
 
 
-base = "python main.py --lr 1e-6 --use_cropimg=False --auto_resume=False --drop_path 0.2 --layer_decay 0.8"
-inputsize = [224, 336]
-data = '/home/daree/data/pothole_data/raw/'
-for i, ckpt in enumerate([set1_2_model]):
+base = """CUDA_VISIBLE_DEVICES=0 python /home/daree/code/main.py \
+            --lr 1e-6 \
+            --use_cropimg=False \
+            --auto_resume=False \
+            --drop_path 0.2 \
+            --layer_decay 0.8 \
+            --test_val_ratio 1.0 0.0 \
+            --use_class 0 \
+            --eval True"""
+inputsize = [224, 224]
+padding = ['PIXEL', 'FIX2']
+padding_size = [100, 336]
+use_bbox = ['True', 'False']
+use_shift = ['False', 'True']
+
+for i, ckpt in enumerate(models):
     os.system(f"""{base} \
             --resume {ckpt} \
             --input_size {inputsize[i]} \
-            --eval_data_path {data}\
-            --data_path {data}\
-            --eval True""")
+            --eval_data_path {set3_data}\
+            --data_path {set3_data}\
+            --padding {padding[i]}\
+            --padding_size {padding_size[i]}\
+            --use_bbox {use_bbox[i]}\
+            --use_shift {use_shift[i]}""")
 
 
 # for input_size in [224, 256, 320]:

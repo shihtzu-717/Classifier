@@ -144,15 +144,15 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/home/daree/data/pothole_data/raw/', type=str,
-                        help='dataset path')
-    # parser.add_argument('--data_path', default='/home/daree/data/pothole_data/set_1/pad_p_50_cls012/train', type=str,
+    # parser.add_argument('--data_path', default='/home/daree/data/pothole_data/raw/', type=str,
     #                     help='dataset path')
+    parser.add_argument('--data_path', default='/home/daree/nas/3rd_data(Pseudo_label)', type=str,
+                        help='dataset path')
 
-    parser.add_argument('--eval_data_path', default=None, type=str,
-                        help='dataset path for evaluation')
-    # parser.add_argument('--eval_data_path', default="/home/daree/data/pothole_data/set_2/train/base_cls012/test/yolo", type=str,
+    # parser.add_argument('--eval_data_path', default=None, type=str,
     #                     help='dataset path for evaluation')
+    parser.add_argument('--eval_data_path', default="/home/daree/nas/3rd_data(Pseudo_label)", type=str,
+                        help='dataset path for evaluation')
 
     parser.add_argument('--nb_classes', default=2, type=int,
                         help='number of the classification types')
@@ -226,6 +226,8 @@ def get_args_parser():
                         help="enable use_bbox mode in image cropping")
     parser.add_argument('--imsave', type=str2bool, default=False,
                         help="enable imsave mode in image cropping")
+    parser.add_argument('--test_val_ratio', default=[0.1, 0.1], nargs='+', type=float)
+    parser.add_argument('--use_class', default=[0, 1, 2, 3], nargs='+', type=int)
 
     return parser
 
@@ -250,15 +252,16 @@ def main(args):
             dataset_val, _ = build_dataset(is_train=False, args=args)
 
     else:
-        sets = get_split_data(data_root=Path(args.data_path))
         if args.eval:
+            sets = get_split_data(data_root=Path(args.eval_data_path), test_r=args.test_val_ratio[0], val_r=args.test_val_ratio[1], file_write=False) 
             dataset_val = PotholeDataset(
                 data_set=sets['test'], 
-                data_path=Path(args.data_path), 
+                data_path=Path(args.eval_data_path), 
                 args=args, 
                 is_train=False) 
             dataset_train = dataset_val
         else:
+            sets = get_split_data(data_root=Path(args.data_path), test_r=args.test_val_ratio[0], val_r=args.test_val_ratio[0], file_write=False) 
             dataset_train = PotholeDataset(
                 data_set=sets['train'], 
                 data_path=Path(args.data_path), 
@@ -441,8 +444,9 @@ def main(args):
             af.write(f'{args.resume}\t{args.eval_data_path}')
             for class_name in dataset_val.classes:
                 acc_name = f'acc1_{class_name}'
-                acc_value = test_stats[acc_name]
-                af.write(f'\t{acc_name}\t{acc_value}')
+                if acc_name in list(test_stats.keys()):
+                    acc_value = test_stats[acc_name]
+                    af.write(f'\t{acc_name}\t{acc_value}')
             af.write('\n')
         print(test_stats)
         return

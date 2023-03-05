@@ -3,6 +3,7 @@ import pickle
 import random
 import traceback
 import argparse
+import glob
 import numpy as np
 
 from enum import Enum
@@ -45,19 +46,19 @@ def crop_image(image_path, bbox, padding, padding_size, use_shift, use_bbox, out
                 1
             )
         if padding_size > 0:
-            if padding == Padding.BBOX:
+            if padding == Padding.BBOX or padding =='BBOX':
                 pad_x = int(padding_size * (x2 - x1))
                 pad_y = int(padding_size * (y2 - y1))
-            elif padding == Padding.PIXEL:
+            elif padding == Padding.PIXEL or padding =='PIXEL':
                 pad_x = int(padding_size)
                 pad_y = int(padding_size)
-            elif padding == Padding.IMAGE:
+            elif padding == Padding.IMAGE or padding =='IMAGE':
                 pad_x = int(padding_size * width)
                 pad_y = int(padding_size * height)
-            elif padding == Padding.FIX:
+            elif padding == Padding.FIX or padding =='FIX':
                 pad_x = max(int((padding_size - (x2 - x1)) / 2), 0)
                 pad_y = max(int((padding_size - (y2 - y1)) / 2), 0)
-            elif padding == Padding.FIX2:
+            elif padding == Padding.FIX2 or padding =='FIX2':
                 padding_size = max(padding_size, x2 - x1, y2 - y1)
                 pad_x = max(int((padding_size - (x2 - x1)) / 2), 0)
                 pad_y = max(int((padding_size - (y2 - y1)) / 2), 0)
@@ -151,17 +152,24 @@ def make_list(data_root, label_list, split_info):
 
 def split_data(data_root, test_ratio, val_ratio, label_list, file_write=True):
     split_info_path = data_root / f'split_info_{test_ratio}_{val_ratio}'
+    
+    train_ratio = 1 - (test_ratio + val_ratio)
+    split_population = 'test', 'val', 'train'
+    split_weights = test_ratio, val_ratio, train_ratio
+
     if split_info_path.exists():
         print(f'load {split_info_path}')
         with split_info_path.open('rb') as rf:
             split_info = pickle.load(rf)
     else:
-        split_info = {}
-    train_ratio = 1 - test_ratio - val_ratio
-    split_population = 'test', 'val', 'train'
-    split_weights = test_ratio, val_ratio, train_ratio
+        split_info = []
+        types = ('*.jpg', '*.jpeg', '*.png') # the tuple of file types
+        for files in types:
+            # glob("./**/*.jpg", recursive=True)
+            split_info.extend(glob.glob(str(data_root/ '**' / files), recursive=True))
+        split_info = dict.fromkeys(map(Path,split_info),random.choices(split_population, split_weights)[0])
+
     split_info = defaultdict(lambda: random.choices(split_population, split_weights)[0], split_info)
-    
     data_list = make_list(data_root, label_list, split_info)
     if file_write:
         print(f'make {split_info_path}')
