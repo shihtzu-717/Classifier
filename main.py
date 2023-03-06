@@ -227,7 +227,7 @@ def get_args_parser():
     parser.add_argument('--imsave', type=str2bool, default=False,
                         help="enable imsave mode in image cropping")
     parser.add_argument('--test_val_ratio', default=[0.1, 0.1], nargs='+', type=float)
-    parser.add_argument('--use_class', default=[0, 1, 2, 3], nargs='+', type=int)
+    parser.add_argument('--use_class', default=[0], nargs='+', type=int)
 
     return parser
 

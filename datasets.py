@@ -172,6 +172,17 @@ class PotholeDataset(Dataset):
             img_bbox.append(torch.tensor(v.bbox))
 
         self.length = len(img_list)
+        # ################# set samples ####################
+        # import random
+        # import shutil
+        # samples = random.sample(set(img_path), 200)
+        # for sample in samples:
+        #     txtsample = sample[:-3] + 'txt'
+        #     print(shutil.copy(sample, '/home/daree/code/samples/ss/positive'))
+        #     print(shutil.copy(txtsample, '/home/daree/code/samples/ss/positive'))
+        # print('done~')
+        # ################# set samples ####################
+
         self.classes = list(np.sort(np.unique(label_list)))
         self.class_to_idx = {string : i for i, string in enumerate(self.classes)}
         self.input_set = (img_list, img_path, img_bbox, label_list) 

@@ -10,7 +10,8 @@ total_model= "/home/daree/code/results/im224_b128_wu0/checkpoint-best.pth"
 
 set1_data = "/home/daree/data/pothole_data/set_1/base_cls012/test/yolo"
 set2_data = "/home/daree/data/pothole_data/set_2/train/base_cls012/test/yolo"
-set3_data = "/home/daree/nas/3rd_data\(Pseudo_label\)"
+set3_data = "/home/daree/nas/dataset3"
+set3_sample = "/home/daree/code/samples"
 raw_data = '/home/daree/data/pothole_data/raw/'
 
 # test
@@ -24,7 +25,6 @@ raw_data = '/home/daree/data/pothole_data/raw/'
 #             --eval_data_path {data[1]}\
 #             --data_path {data[1]}\
 #             --eval True""")
-
 
 base = """CUDA_VISIBLE_DEVICES=0 python /home/daree/code/main.py \
             --lr 1e-6 \
@@ -45,8 +45,8 @@ for i, ckpt in enumerate(models):
     os.system(f"""{base} \
             --resume {ckpt} \
             --input_size {inputsize[i]} \
-            --eval_data_path {set3_data}\
-            --data_path {set3_data}\
+            --eval_data_path {set3_sample}\
+            --data_path {set3_sample}\
             --padding {padding[i]}\
             --padding_size {padding_size[i]}\
             --use_bbox {use_bbox[i]}\
