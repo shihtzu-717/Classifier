@@ -2,12 +2,6 @@
 /results
 /wandb
 /temp
+/__pycache__
 checkpoint/convnext_base_22k_224.pth
 checkpoint/convnext_xlarge_22k_224.pth
-__pycache__/datasets.cpython-38.pyc
-__pycache__/engine.cpython-38.pyc
-__pycache__/preview/Matplotlib/crop_img.png
-__pycache__/preview/OpenCV/crop_img.png
-__pycache__/datasets.cpython-38.pyc
-__pycache__/engine.cpython-38.pyc
-__pycache__/utils.cpython-38.pyc

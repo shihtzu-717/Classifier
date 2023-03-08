@@ -123,31 +123,43 @@ def read_annotation(annotation):
             bbox = [float(v) for v in data[1:5]]
             yield line_idx, class_id, bbox
 
-def make_list(data_root, label_list, split_info):
+def make_list(data_root, label_list=None, split_info=None):
     data_list = defaultdict(list)
     print('dataset\tlabel\tclass_id\ttest_cnt\tval_cnt\ttrain_cnt')
-    for data_sub_root in data_root.glob('*'):
-        if not data_sub_root.is_dir():
-            continue
-        for label in label_list:
-            annotation_root = data_sub_root / label
-            count_dict = defaultdict(lambda: defaultdict(int))
-            for annotation in annotation_root.glob('**/*.txt'):
-                image_path = find_image(annotation)
-                image_path = image_path.relative_to(annotation_root)
-                split_tag = split_info[annotation.relative_to(data_root)]
-                for line_idx, class_id, bbox in read_annotation(annotation):
-                    raw_data = RawData(
-                        data_sub_root.name, label, image_path,
-                        line_idx, class_id, bbox
-                    )
-                    count_dict[raw_data.class_id][split_tag] += 1
-                    data_list[split_tag].append(raw_data)
-            for class_id, count in count_dict.items():
-                test_cnt = count['test']
-                val_cnt = count['val']
-                train_cnt = count['train']
-                print(f'{data_sub_root.name}\t{label}\t{class_id}\t{test_cnt}\t{val_cnt}\t{train_cnt}')
+    if split_info is None:
+        for annotation in data_root.glob('*.txt'):
+            image_path = find_image(annotation)
+            image_path = image_path.relative_to(data_root)
+            # annotation = annotation.relative_to(data_root)
+            for line_idx, class_id, bbox in read_annotation(annotation):
+                raw_data = (
+                    data_root, image_path, 
+                    line_idx, class_id, bbox
+                )
+                data_list['data'].append(raw_data)
+    else:
+        for data_sub_root in data_root.glob('*'):
+            if not data_sub_root.is_dir():
+                continue
+            for label in label_list:
+                annotation_root = data_sub_root / label
+                count_dict = defaultdict(lambda: defaultdict(int))
+                for annotation in annotation_root.glob('**/*.txt'):
+                    image_path = find_image(annotation)
+                    image_path = image_path.relative_to(annotation_root)
+                    split_tag = split_info[annotation.relative_to(data_root)]
+                    for line_idx, class_id, bbox in read_annotation(annotation):
+                        raw_data = RawData(
+                            data_sub_root.name, label, image_path,
+                            line_idx, class_id, bbox
+                        )
+                        count_dict[raw_data.class_id][split_tag] += 1
+                        data_list[split_tag].append(raw_data)
+                for class_id, count in count_dict.items():
+                    test_cnt = count['test']
+                    val_cnt = count['val']
+                    train_cnt = count['train']
+                    print(f'{data_sub_root.name}\t{label}\t{class_id}\t{test_cnt}\t{val_cnt}\t{train_cnt}')
     return data_list
 
 def split_data(data_root, test_ratio, val_ratio, label_list, file_write=True):
