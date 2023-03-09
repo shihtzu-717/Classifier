@@ -7,13 +7,24 @@
 
 
 import math
-from typing import Iterable, Optional
 import torch
+import preprocess_data
+import shutil
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import utils
+
+from typing import Iterable, Optional
 from timm.data import Mixup
 from timm.utils import accuracy, ModelEma
 
-
-import utils
+from tqdm import tqdm
+from torchvision import transforms
+from PIL import Image
+from timm.models import create_model
+from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
+from pathlib import Path
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -221,3 +232,138 @@ def evaluate(data_loader, model, device, use_amp=False):
           .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+@torch.no_grad()
+def prediction(args, device):
+    imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
+    mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
+    std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
+    totorch = transforms.ToTensor()
+
+    model = create_model(
+        args.model, 
+        pretrained=False, 
+        num_classes=args.nb_classes, 
+        drop_path_rate=args.drop_path,
+        layer_scale_init_value=args.layer_scale_init_value,
+        head_init_scale=args.head_init_scale,
+    )
+    model.to(device)
+
+    utils.auto_load_model(
+        args=args, model=model, model_without_ddp=model,
+        optimizer=None, loss_scaler=None, model_ema=None)
+    model.eval()
+    
+    data_list = []
+    result = []
+    data_root=Path(args.eval_data_path)
+    data_list = preprocess_data.make_list(data_root)['data']
+    tonorm = transforms.Normalize(mean, std)
+    for data in tqdm(data_list, desc='Image Cropping... '):
+        crop_img = preprocess_data.crop_image(
+            image_path = data[0] / data[1], 
+            bbox = data[4], 
+            padding = args.padding, 
+            padding_size = args.padding_size, 
+            use_shift = args.use_shift, 
+            use_bbox = args.use_bbox, 
+            imsave = args.imsave
+        )
+        spltnm = str(data[1]).split('_')
+        target = int(spltnm[0][1]) if spltnm[0][0] == 't' else -1
+
+        crop_img = cv2.resize(crop_img, (args.input_size, args.input_size))
+        crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
+        pil_image=Image.fromarray(crop_img)
+        input_tensor = totorch(pil_image).to(device)
+        input_tensor = input_tensor.unsqueeze(dim=0)
+        input_tensor = tonorm(input_tensor)
+        output_tensor = model(input_tensor)
+        
+        pred, conf = int(torch.argmax(output_tensor).detach().cpu().numpy()), float((torch.max(output_tensor)).detach().cpu().numpy())
+        result.append((pred, conf, target, data[0] / data[1]))
+        
+    # ##################################### save result image & anno #####################################
+    if args.pred_save:
+        pos = [x[-1] for x in result if x[0]==1]
+        neg = [x[-1] for x in result if x[0]==0]
+
+        for n in tqdm(neg, desc='Negative images copying... '):
+            shutil.copy(n, Path(args.pred_save_path) /'negative' / 'images')
+            shutil.copy(str(n)[:-3]+'txt', Path(args.pred_save_path) / 'negative' / 'annotations')
+        for p in tqdm(pos, desc='Positive images copying... '):
+            shutil.copy(p, Path(args.pred_save_path) / 'positive' / 'images')
+            shutil.copy(str(p)[:-3]+'txt', Path(args.pred_save_path) / 'positive' / 'annotations')
+    # ##################################### save result image & anno #####################################
+
+    ##################################### save evalutations #####################################
+    if args.pred_eval:
+        if np.sum(np.array(result)[...,2]) < 0:
+            conf_TN = [x[1] for x in result if (x[0]==0)]
+            conf_TP = [x[1] for x in result if (x[0]==1)]
+            conf_FN = []
+            conf_FP = []    
+            itn = [i for i in range(len(result)) if (result[i][0]==0)]
+            itp = [i for i in range(len(result)) if (result[i][0]==1)]
+
+            # histogram P-N 
+            plt.hist((conf_TN, conf_TP), label=('Negative', 'Positive'),histtype='bar', bins=50)
+            plt.xlabel('Confidence')
+            plt.ylabel('Conunt')
+            plt.legend(loc='upper left')
+            plt.savefig(args.pred_eval_name+'hist_PN.png')
+            plt.close()
+
+        else:
+            # collect data  
+            conf_TN = [x[1] for x in result if (x[0]==x[2] and x[0]==0)]
+            conf_TP = [x[1] for x in result if (x[0]==x[2] and x[0]==1)]
+            conf_FN = [x[1] for x in result if (x[0]!=x[2] and x[0]==0)]
+            conf_FP = [x[1] for x in result if (x[0]!=x[2] and x[0]==1)]
+            
+            # get index 
+            itn = [i for i in range(len(result)) if (result[i][0]==result[i][2] and result[i][0]==0)]
+            itp = [i for i in range(len(result)) if (result[i][0]==result[i][2] and result[i][0]==1)]
+            ifn = [i for i in range(len(result)) if (result[i][0]!=result[i][2] and result[i][0]==0)]
+            ifp = [i for i in range(len(result)) if (result[i][0]!=result[i][2] and result[i][0]==1)]
+
+            # histogram T-F 
+            plt.hist(((conf_TN+conf_TP),(conf_FN+conf_FP)), label=('True', 'False'),histtype='bar', bins=50)
+            plt.xlabel('Confidence')
+            plt.ylabel('Conunt')
+            plt.legend(loc='upper left')
+            plt.savefig(args.pred_eval_name+'hist_tf.png')
+            plt.close()
+
+            # histogram TN TP FN FP
+            plt.hist((conf_TN,conf_TP,conf_FN,conf_FP), label=('TN', 'TP','FN','FP'),histtype='bar', bins=30)
+            plt.xlabel('Confidence')
+            plt.ylabel('Conunt')
+            plt.legend(loc='upper left')
+            plt.savefig(args.pred_eval_name+'hist_4.png')
+            plt.close()
+            
+        # scatter graph
+        if len(conf_TN):
+            plt.scatter(conf_TN, itn, alpha=0.4, color='tab:blue', label='TN', s=20)
+        if len(conf_TP):
+            plt.scatter(conf_TP, itp, alpha=0.4, color='tab:orange', label='TP', s=20)
+        if len(conf_FN):
+            plt.scatter(conf_FN, ifn, alpha=0.4, color='tab:green', marker='x', label='FN', s=20)
+        if len(conf_FP):
+            plt.scatter(conf_FP, ifp, alpha=0.4, color='tab:red', marker='x', label='FT', s=20)
+        plt.legend(loc='upper right')
+        plt.xlabel('Confidence')
+        plt.ylabel('Image Index')
+        plt.savefig(args.pred_eval_name+'scater.png')
+        plt.close()
+
+        # histogram 
+        plt.hist(((conf_TN+conf_TP+conf_FN+conf_FP)), histtype='bar', bins=50)
+        plt.xlabel('Confidence')
+        plt.ylabel('Conunt')
+        plt.savefig(args.pred_eval_name+'hist.png')
+        plt.close()
+
+    ##################################### save evalutations #####################################
