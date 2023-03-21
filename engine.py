@@ -41,7 +41,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
     optimizer.zero_grad()
 
-    for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+    # for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+    for data_iter_step, batch in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+        samples = batch[0]
+        targets = batch[-1]
+
         step = data_iter_step // update_freq
         if step >= num_training_steps_per_epoch:
             continue
@@ -139,51 +143,44 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             if use_amp:
                 wandb_logger._wandb.log({'Rank-0 Batch Wise/train_grad_norm': grad_norm}, commit=False)
             wandb_logger._wandb.log({'Rank-0 Batch Wise/global_train_step': it})
-            
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
-@torch.no_grad()
-def evaluate(data_loader, model, device, use_amp=False):
-    criterion = torch.nn.CrossEntropyLoss()
 
+@torch.no_grad()
+def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), use_amp=False):
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
 
-    import os
-    import time
-    tm = time.localtime(time.time())
-    strtm = time.strftime("%m%d_%I%M%S", tm)
-    os.makedirs(f'results/eval_{strtm}/neg', exist_ok=True)
-    os.makedirs(f'results/eval_{strtm}/pos', exist_ok=True)
+    # import os
+    # import time
+    # tm = time.localtime(time.time())
+    # strtm = time.strftime("%m%d_%I%M%S", tm)
+    # for ii in data_loader.dataset.classes:
+    #     os.makedirs(f'results/eval_{strtm}/{ii}', exist_ok=True)
 
     # switch to evaluation mode
     model.eval()
-    
     print(data_loader)
     cnt = 0
 
     for batch in metric_logger.log_every(data_loader, 10, header):
-        images = batch[0]
-        path = batch[1]
-        bbox = batch[2]
-        target = batch[-1]
-
-        images = images.to(device, non_blocking=True)
-        images = images.to(device, non_blocking=True)
-        target = target.to(device, non_blocking=True)
+        images = batch[0].to(device, non_blocking=True)
+        origin_target = batch[-1].to(device, non_blocking=True)
 
         # compute output
         if use_amp:
             with torch.cuda.amp.autocast():
                 output = model(images)
-                loss = criterion(output, target)
+                loss = criterion(output, origin_target)
         else:
             output = model(images)
-            loss = criterion(output, target)
+            loss = criterion(output, origin_target)
+        
+        target = torch.tensor([0 if i==2 or i==0 else 1 for i in origin_target]).to(device)
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
@@ -193,25 +190,28 @@ def evaluate(data_loader, model, device, use_amp=False):
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
 
 ################################################################################ 
-        import preprocess_data
-        import cv2
+        # import preprocess_data
+        # import cv2
+        
+        # path = batch[1]
+        # bbox = batch[2]
 
-        _, predict = torch.max(output, dim=1)
-        for t, p, pth, box in zip(target, predict, path, bbox):
-            pn='neg' if p==0 else 'pos'
-            save_path = f'results/eval_{strtm}/{pn}'
-            save_nm = os.path.join(save_path, f't{t}_p{p}_{os.path.basename(pth)}')
+        # _, predict = torch.max(output, dim=1)
+        # for t, p, pth, box in zip(target, predict, path, bbox):
+        #     pn='neg' if p==0 else 'pos'
+        #     save_path = f'results/eval_{strtm}/{pn}'
+        #     save_nm = os.path.join(save_path, f't{t}_p{p}_{os.path.basename(pth)}')
 
-            image = cv2.imread(pth)
-            x1, y1, x2, y2 =  preprocess_data.xywh2xyxy(box, image.shape[1], image.shape[0])
-            # crop_img = image[y1:y2, x1:x2]
-            # cv2.imwrite(save_nm, crop_img)
-            if p == t:
-                image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(0, 0, 255),2)
-            else:
-                image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(255, 0, 0),1)
-            cv2.imwrite(save_nm, image)
-            cnt += 1
+        #     image = cv2.imread(pth)
+        #     x1, y1, x2, y2 =  preprocess_data.xywh2xyxy(box, image.shape[1], image.shape[0])
+        #     # crop_img = image[y1:y2, x1:x2]
+        #     # cv2.imwrite(save_nm, crop_img)
+        #     if p == t:
+        #         image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(0, 0, 255),2)
+        #     else:
+        #         image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(255, 0, 0),1)
+        #     cv2.imwrite(save_nm, image)
+        #     cnt += 1
 ################################################################################ 
 
         for class_name, class_id in data_loader.dataset.class_to_idx.items():
@@ -221,7 +221,8 @@ def evaluate(data_loader, model, device, use_amp=False):
             if data_size > 0:
                 mask = mask.unsqueeze(1).expand_as(output)
                 output_class = torch.masked_select(output, mask)
-                output_class = output_class.view(-1, len(data_loader.dataset.class_to_idx))
+                # output_class = output_class.view(-1, len(data_loader.dataset.class_to_idx))
+                output_class = output_class.view(-1, 2)
                 acc1_class, acc5_class = accuracy(output_class, target_class, topk=(1, 5))
                 metric_logger.meters[f'acc1_{class_name}'].update(acc1_class.item(), n=data_size)
                 metric_logger.meters[f'acc5_{class_name}'].update(acc5_class.item(), n=data_size)
@@ -230,8 +231,8 @@ def evaluate(data_loader, model, device, use_amp=False):
     metric_logger.synchronize_between_processes()
     print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
           .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
-
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
 
 @torch.no_grad()
 def prediction(args, device):
@@ -284,10 +285,17 @@ def prediction(args, device):
         pred, conf = int(torch.argmax(output_tensor).detach().cpu().numpy()), float((torch.max(output_tensor)).detach().cpu().numpy())
         result.append((pred, conf, target, data[0] / data[1]))
         
-    # ##################################### save result image & anno #####################################
+    ##################################### save result image & anno #####################################
     if args.pred_save:
+        import os
+        os.makedirs(Path(args.pred_save_path) /'negative' / 'images', exist_ok=True)
+        os.makedirs(Path(args.pred_save_path) /'negative' / 'annotations', exist_ok=True)
+        os.makedirs(Path(args.pred_save_path) /'positive' / 'images', exist_ok=True)
+        os.makedirs(Path(args.pred_save_path) /'positive' / 'annotations', exist_ok=True)
+
         pos = [x[-1] for x in result if x[0]==1]
         neg = [x[-1] for x in result if x[0]==0]
+        
 
         for n in tqdm(neg, desc='Negative images copying... '):
             shutil.copy(n, Path(args.pred_save_path) /'negative' / 'images')
@@ -295,7 +303,7 @@ def prediction(args, device):
         for p in tqdm(pos, desc='Positive images copying... '):
             shutil.copy(p, Path(args.pred_save_path) / 'positive' / 'images')
             shutil.copy(str(p)[:-3]+'txt', Path(args.pred_save_path) / 'positive' / 'annotations')
-    # ##################################### save result image & anno #####################################
+    ##################################### save result image & anno #####################################
 
     ##################################### save evalutations #####################################
     if args.pred_eval:

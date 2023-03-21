@@ -109,12 +109,12 @@ def build_transform(is_train, args):
     t.append(transforms.Normalize(mean, std))
     return transforms.Compose(t)
 
-def get_split_data(data_root, test_r=0.1, val_r=0.1, file_write=False):
+def get_split_data(data_root, test_r=0.1, val_r=0.1, file_write=False, label_list=None):
     return preprocess_data.split_data(
         data_root=data_root, 
         test_ratio=test_r, 
         val_ratio=val_r, 
-        label_list=['positive', 'negative'], 
+        label_list=label_list,  # ['positive', 'negative']
         file_write=file_write)
 
 
@@ -150,7 +150,8 @@ class PotholeDataset(Dataset):
         for v in tqdm(self.data_set, desc='Image Cropping... '):
             if v.class_id not in self.use_class:
                 continue
-            image_path = self.data_path / v.data_set / v.label / v.image_path
+            # image_path = self.data_path / v.data_set / v.label / v.image_path
+            image_path = self.data_path / v.image_path
             crop_img = preprocess_data.crop_image(
                 image_path = image_path, 
                 bbox = v.bbox, 
@@ -196,7 +197,7 @@ class PotholeDataset(Dataset):
             image = self.transform(image)
         if self.target_transform:
             label = self.target_transform(label)
-        clss = torch.tensor(0) if label == 'negative' else torch.tensor(1)
+        clss = torch.tensor(self.class_to_idx[label])
         return (image, img_path, img_bbox, clss)
 
 

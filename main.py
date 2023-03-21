@@ -86,7 +86,7 @@ def get_args_parser():
         weight decay. We use a cosine schedule for WD and using a larger decay by
         the end of training improves performance for ViTs.""")
 
-    parser.add_argument('--lr', type=float, default=4e-3, metavar='LR',
+    parser.add_argument('--lr', type=float, default=4e-4, metavar='LR',
                         help='learning rate (default: 4e-3), with total batch size 4096')
     parser.add_argument('--layer_decay', type=float, default=1.0)
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
@@ -120,10 +120,15 @@ def get_args_parser():
                         help='Do not random erase first (clean) augmentation split')
 
     # * Mixup params
-    parser.add_argument('--mixup', type=float, default=0.8,
+    # parser.add_argument('--mixup', type=float, default=0.8,
+    #                     help='mixup alpha, mixup enabled if > 0.')
+    # parser.add_argument('--cutmix', type=float, default=1.0,
+    #                     help='cutmix alpha, cutmix enabled if > 0.')
+    parser.add_argument('--mixup', type=float, default=0.0,
                         help='mixup alpha, mixup enabled if > 0.')
-    parser.add_argument('--cutmix', type=float, default=1.0,
+    parser.add_argument('--cutmix', type=float, default=0.0,
                         help='cutmix alpha, cutmix enabled if > 0.')
+    
     parser.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,
                         help='cutmix min/max ratio, overrides alpha and enables cutmix if set (default: None)')
     parser.add_argument('--mixup_prob', type=float, default=1.0,
@@ -143,12 +148,17 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/home/daree/nas/dataset2/images', type=str,
+    # parser.add_argument('--data_path', default='/home/daree/data/pothole_data/raw', type=str,
+    #                     help='dataset path')
+    # parser.add_argument('--data_path', default='/home/daree/data/pothole_data/set_2/train/pad_f2_336_shift_cls012_yp24n1tp1/train', type=str,
+    #                     help='dataset path')
+    parser.add_argument('--data_path', default='/home/daree/nas/ambclss/2nd_data', type=str,
                         help='dataset path')
-
-    # parser.add_argument('--eval_data_path', default=None, type=str,
+    # parser.add_argument('--eval_data_path', default="/home/daree/nas/ambclss/2st_data", type=str,
     #                     help='dataset path for evaluation')
-    parser.add_argument('--eval_data_path', default="/home/daree/nas/dataset2/images", type=str,
+    # # parser.add_argument('--eval_data_path', default=None, type=str,
+    #                     help='dataset path for evaluation')
+    parser.add_argument('--eval_data_path', default="/home/daree/nas/dataset1/images", type=str,
                         help='dataset path for evaluation')
 
     parser.add_argument('--nb_classes', default=2, type=int,
@@ -164,9 +174,9 @@ def get_args_parser():
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=0, type=int)
 
-    # parser.add_argument('--resume', default='', help='resume from checkpoint')
-    parser.add_argument('--resume', default='/home/unmanned/results/set_2/b/pad_f2_336_shift_cls012_yp24n1tp1/checkpoint-best.pth',
-                         help='resume from checkpoint')
+    parser.add_argument('--resume', default='', help='resume from checkpoint')
+    # parser.add_argument('--resume', default='/home/unmanned/results/set_2/b/pad_f2_336_shift_cls012_yp24n1tp1/checkpoint-best.pth',
+    #                      help='resume from checkpoint')
     
     parser.add_argument('--auto_resume', type=str2bool, default=False)
     parser.add_argument('--save_ckpt', type=str2bool, default=True)
@@ -208,8 +218,6 @@ def get_args_parser():
                         help="Save model checkpoints as W&B Artifacts.")
     
     # Image Crop & Padding 
-    # parser.add_argument('--use_cropimg', type=str2bool, default=True,
-    #                     help='Use oringinal code for data input')
     parser.add_argument('--use_cropimg', type=str2bool, default=False,
                         help='Use oringinal code for data input')
     parser.add_argument('--upsample', default=[1, 10], nargs='+', type=int)
@@ -224,12 +232,13 @@ def get_args_parser():
     parser.add_argument('--imsave', type=str2bool, default=False,
                         help="enable imsave mode in image cropping")
     parser.add_argument('--test_val_ratio', default=[0.1, 0.1], nargs='+', type=float)
-    parser.add_argument('--use_class', default=[0], nargs='+', type=int)
+    parser.add_argument('--use_class', default=[0,1,2,3,4,5,6], nargs='+', type=int)
+    parser.add_argument('--label_list', default=None, nargs='+', type=str) # ['positive', 'negative']
 
     # predictions and evaluations 
-    parser.add_argument('--pred', type=str2bool, default=True, help='Perform prediction only')
+    parser.add_argument('--pred', type=str2bool, default=False, help='Perform prediction only')
     parser.add_argument('--pred_save', type=str2bool, default=False, help='Save prediction result')
-    parser.add_argument('--pred_save_path', type=str, default='/home/daree/nas/set3', help='set root path for save result images')
+    parser.add_argument('--pred_save_path', type=str, default='/home/daree/nas/set1', help='set root path for save result images')
     parser.add_argument('--pred_eval', type=str2bool, default=True, help='Save prediction evaluation')
     parser.add_argument('--pred_eval_name', type=str, default='', help='name for saving graph')
 
@@ -261,7 +270,11 @@ def main(args):
             return
          
         elif args.eval:
-            sets = get_split_data(data_root=Path(args.eval_data_path), test_r=args.test_val_ratio[0], val_r=args.test_val_ratio[1], file_write=False) 
+            sets = get_split_data(data_root=Path(args.eval_data_path), 
+                                  test_r=args.test_val_ratio[0], 
+                                  val_r=args.test_val_ratio[1], 
+                                  file_write=False,
+                                  label_list = args.label_list) 
             dataset_val = PotholeDataset(
                 data_set=sets['test'], 
                 data_path=Path(args.eval_data_path), 
@@ -270,18 +283,21 @@ def main(args):
             dataset_train = dataset_val
 
         else:
-            sets = get_split_data(data_root=Path(args.data_path), test_r=args.test_val_ratio[0], val_r=args.test_val_ratio[0], file_write=False) 
+            sets = get_split_data(data_root=Path(args.data_path), 
+                                  test_r=args.test_val_ratio[0], 
+                                  val_r=args.test_val_ratio[1], 
+                                  file_write=False,
+                                  label_list = args.label_list) 
             dataset_train = PotholeDataset(
                 data_set=sets['train'], 
                 data_path=Path(args.data_path), 
                 args=args)
-            data_set = sets['val']
             dataset_val = PotholeDataset(
-                data_set=data_set, 
+                data_set=sets['val'], 
                 data_path=Path(args.data_path), 
                 args=args, 
                 is_train=False) 
-            args.nb_classes=2
+            # args.nb_classes=len(dataset_train.classes)
         
     num_tasks = utils.get_world_size()
     global_rank = utils.get_rank()
@@ -383,7 +399,7 @@ def main(args):
             resume='')
         print("Using EMA with decay = %.8f" % args.model_ema_decay)
 
-    model_without_ddp = model
+    model_without_ddp = model 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     print("Model = %s" % str(model_without_ddp))
@@ -429,15 +445,21 @@ def main(args):
         args.weight_decay_end = args.weight_decay
     wd_schedule_values = utils.cosine_scheduler(
         args.weight_decay, args.weight_decay_end, args.epochs, num_training_steps_per_epoch)
-    print("Max WD = %.7f, Min WD = %.7f" % (max(wd_schedule_values), min(wd_schedule_values)))
-
-    if mixup_fn is not None:
-        # smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif args.smoothing > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    if len(wd_schedule_values):
+        print("Max WD = %.7f, Min WD = %.7f" % (max(wd_schedule_values), min(wd_schedule_values)))
     else:
-        criterion = torch.nn.CrossEntropyLoss()
+        print("wd_schedule_values is empty")
+
+    from loss import softLabelLoss
+
+    criterion = softLabelLoss()
+    # if mixup_fn is not None:
+    #     # smoothing is handled with mixup label transform
+    #     criterion = SoftTargetCrossEntropy()
+    # elif args.smoothing > 0.:
+    #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    # else:
+        # criterion = torch.nn.CrossEntropyLoss()
 
     print("criterion = %s" % str(criterion))
 
@@ -447,7 +469,8 @@ def main(args):
 
     if args.eval:
         print(f"Eval only mode")
-        test_stats = evaluate(data_loader_val, model, device, use_amp=args.use_amp)
+        test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp)
+        # test_stats = evaluate(data_loader_val, model, device, use_amp=args.use_amp)
         print(f"Accuracy of the network on {len(dataset_val)} test images: {test_stats['acc1']:.5f}%")
         with open('results/eval.txt', 'a', encoding='utf-8') as af:
             af.write(f'{args.resume}\t{args.eval_data_path}')
@@ -487,7 +510,7 @@ def main(args):
                     args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch=epoch, model_ema=model_ema)
         if data_loader_val is not None:
-            test_stats = evaluate(data_loader_val, model, device, use_amp=args.use_amp)
+            test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp)
             print(f"Accuracy of the model on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
             if max_accuracy < test_stats["acc1"]:
                 max_accuracy = test_stats["acc1"]
@@ -537,7 +560,6 @@ def main(args):
 
     if wandb_logger and args.wandb_ckpt and args.save_ckpt and args.output_dir:
         wandb_logger.log_checkpoints()
-
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

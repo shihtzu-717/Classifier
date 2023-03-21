@@ -106,19 +106,21 @@ def get_image_path(data_root, data, is_train, is_output):
     else:
         return data_root / data.data_set / data.label / image_path
 
-def find_image(annotation):
+def find_image(anno):
     ext_list = ['.jpg', '.png']
     for ext in ext_list:
-        image = annotation.with_suffix(ext)
+        image = anno.with_suffix(ext)
         if image.exists():
             return image
-    raise Exception(f'image not found: {annotation}')
+    raise Exception(f'image not found: {anno}')
 
 def read_annotation(annotation):
     with annotation.open('r', encoding='utf-8') as rf:
         for line_idx, line in enumerate(rf.readlines()):
             line = line.strip()
             data = line.split()
+            if len(data) == 0:
+                continue
             class_id = int(data[0])
             bbox = [float(v) for v in data[1:5]]
             yield line_idx, class_id, bbox
@@ -137,6 +139,25 @@ def make_list(data_root, label_list=None, split_info=None):
                     line_idx, class_id, bbox
                 )
                 data_list['data'].append(raw_data)
+
+    elif label_list is None:
+        for annotation in data_root.glob('**/*.txt'):
+            try:
+                image_path = find_image(annotation)
+            except:
+                newanno = Path(str(annotation).replace('annotations', 'images'))
+                image_path = find_image(newanno)
+            image_path = image_path.relative_to(data_root)
+            split_tag = split_info[annotation.relative_to(data_root)]
+            # annotation = annotation.relative_to(data_root)
+            for line_idx, class_id, bbox in read_annotation(annotation):
+                label = annotation.parts[-3]
+                raw_data = RawData(
+                    data_root, label, image_path, 
+                    line_idx, class_id, bbox
+                )
+                data_list[split_tag].append(raw_data)
+
     else:
         for data_sub_root in data_root.glob('*'):
             if not data_sub_root.is_dir():
@@ -162,7 +183,7 @@ def make_list(data_root, label_list=None, split_info=None):
                     print(f'{data_sub_root.name}\t{label}\t{class_id}\t{test_cnt}\t{val_cnt}\t{train_cnt}')
     return data_list
 
-def split_data(data_root, test_ratio, val_ratio, label_list, file_write=True):
+def split_data(data_root, test_ratio, val_ratio, label_list=None, file_write=True):
     split_info_path = data_root / f'split_info_{test_ratio}_{val_ratio}'
     
     train_ratio = 1 - (test_ratio + val_ratio)

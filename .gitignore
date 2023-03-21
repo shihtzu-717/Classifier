@@ -8,3 +8,6 @@ checkpoint/convnext_xlarge_22k_224.pth
 __pycache__/engine.cpython-38.pyc
 __pycache__/preprocess_data.cpython-38.pyc
 __pycache__/utils.cpython-38.pyc
+__pycache__/datasets.cpython-38.pyc
+__pycache__/engine.cpython-38.pyc
+__pycache__/preprocess_data.cpython-38.pyc
