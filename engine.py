@@ -71,7 +71,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         else: # full precision
             output = model(samples)
             loss = criterion(output, targets)
-
+  
         loss_value = loss.item()
 
         if not math.isfinite(loss_value): # this could trigger if using AMP
@@ -101,7 +101,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         torch.cuda.synchronize()
 
         if mixup_fn is None:
-            class_acc = (output.max(-1)[-1] == targets).float().mean()
+            targets = torch.tensor([0 if i==2 or i==0 else 1 for i in targets]).to(device)
+            class_acc = (output.max(-1)[-1] == targets).float().mean()*100
         else:
             class_acc = None
         metric_logger.update(loss=loss_value)
@@ -155,33 +156,22 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
 
-    # import os
-    # import time
-    # tm = time.localtime(time.time())
-    # strtm = time.strftime("%m%d_%I%M%S", tm)
-    # for ii in data_loader.dataset.classes:
-    #     os.makedirs(f'results/eval_{strtm}/{ii}', exist_ok=True)
-
     # switch to evaluation mode
     model.eval()
-    print(data_loader)
-    cnt = 0
-
     for batch in metric_logger.log_every(data_loader, 10, header):
         images = batch[0].to(device, non_blocking=True)
         origin_target = batch[-1].to(device, non_blocking=True)
+        target = torch.tensor([0 if i==2 or i==0 else 1 for i in origin_target]).to(device)
 
         # compute output
         if use_amp:
             with torch.cuda.amp.autocast():
                 output = model(images)
-                loss = criterion(output, origin_target)
+                loss = criterion(output, target)
         else:
             output = model(images)
-            loss = criterion(output, origin_target)
+            loss = criterion(output, target)
         
-        target = torch.tensor([0 if i==2 or i==0 else 1 for i in origin_target]).to(device)
-
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         batch_size = images.shape[0]
@@ -189,32 +179,11 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
 
-################################################################################ 
-        # import preprocess_data
-        # import cv2
-        
-        # path = batch[1]
-        # bbox = batch[2]
-
-        # _, predict = torch.max(output, dim=1)
-        # for t, p, pth, box in zip(target, predict, path, bbox):
-        #     pn='neg' if p==0 else 'pos'
-        #     save_path = f'results/eval_{strtm}/{pn}'
-        #     save_nm = os.path.join(save_path, f't{t}_p{p}_{os.path.basename(pth)}')
-
-        #     image = cv2.imread(pth)
-        #     x1, y1, x2, y2 =  preprocess_data.xywh2xyxy(box, image.shape[1], image.shape[0])
-        #     # crop_img = image[y1:y2, x1:x2]
-        #     # cv2.imwrite(save_nm, crop_img)
-        #     if p == t:
-        #         image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(0, 0, 255),2)
-        #     else:
-        #         image = cv2.rectangle(image,(x1 - 1, y1 - 1),(x2, y2),(255, 0, 0),1)
-        #     cv2.imwrite(save_nm, image)
-        #     cnt += 1
-################################################################################ 
-
         for class_name, class_id in data_loader.dataset.class_to_idx.items():
+            class_id = 0 if class_id==2 or class_id==0 else 1 
+            class_name = 'negative' if class_name == 'amb_neg' else class_name
+            class_name = 'positive' if class_name == 'amb_pos' else class_name
+
             mask = (target == class_id)
             target_class = torch.masked_select(target, mask)
             data_size = target_class.shape[0]

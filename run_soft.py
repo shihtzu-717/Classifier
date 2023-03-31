@@ -7,7 +7,7 @@ use_bbox = ['False', 'True']
 use_shift = ['False', 'True']
 soft_label_ratio = [0.9, 0.8, 0.7, 0.6]
 target_label_ratio = [1, 0.98, 0.96, 0.94, 0.92, 0.90 ]
-warmup = [0]
+warmup = [5]
 
 
 base = """CUDA_VISIBLE_DEVICES=0 python main.py \

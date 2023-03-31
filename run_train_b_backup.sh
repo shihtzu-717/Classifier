@@ -22,8 +22,8 @@ python -m torch.distributed.launch --nproc_per_node=2 main.py \
 --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
 --aa ${auto_augment} \
 --finetune checkpoint/convnext_base_22k_224.pth \
---data_path /home/daree/data/pothole_data/set_1/${data_name}/train \
---eval_data_path /home/daree/data/pothole_data/set_1/${data_name}/val \
+--data_path /data/pothole_data/out/${data_name}/train \
+--eval_data_path /data/pothole_data/out/${data_name}/val \
 --output_dir results/b/${model_name} \
 --model_ema true --model_ema_eval true \
 --data_set image_folder \
@@ -42,8 +42,8 @@ python main.py \
 --layer_decay 0.8 \
 --data_set image_folder \
 --nb_classes 2 \
---data_path /home/daree/data/pothole_data/set_1/${data_name}/train \
---eval_data_path /home/daree/data/pothole_data/set_1/${data_name}/test/train &> results/b/${model_name}/eval_train.out
+--data_path /data/pothole_data/out/${data_name}/train \
+--eval_data_path /data/pothole_data/out/${data_name}/test/train &> results/b/${model_name}/eval_train.out
 
 python main.py \
 --model convnext_base \
@@ -54,5 +54,5 @@ python main.py \
 --layer_decay 0.8 \
 --data_set image_folder \
 --nb_classes 2 \
---data_path /home/daree/data/pothole_data/set_1/${data_name}/train \
---eval_data_path /home/daree/data/pothole_data/set_1/${data_name}/test/yolo &> results/b/${model_name}/eval_yolo.out
+--data_path /data/pothole_data/out/${data_name}/train \
+--eval_data_path /data/pothole_data/out/${data_name}/test/yolo &> results/b/${model_name}/eval_yolo.out

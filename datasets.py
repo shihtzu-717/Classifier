@@ -10,6 +10,7 @@ import os
 import torch
 import pickle
 import cv2
+import random
 import preprocess_data
 import numpy as np
 import matplotlib.pyplot as plt
@@ -122,9 +123,9 @@ class PotholeDataset(Dataset):
     def __init__(self, data_set, data_path, args, is_train=True, transform=None, target_transform=None):
         super().__init__()
         self.data_set = data_set
-        # self.is_train = is_train
+        self.is_train = is_train
         self.data_path = data_path
-        self.transform = transform
+        # self.transform = transform
         self.transform = build_transform(is_train, args)
         self.target_transform = target_transform
        
@@ -136,7 +137,6 @@ class PotholeDataset(Dataset):
         self.imsave = args.imsave
         self.upsample = args.upsample
         self.use_class = args.use_class
-        
         self.get_crop()
 
     def __len__(self):
@@ -161,6 +161,7 @@ class PotholeDataset(Dataset):
                 use_bbox = self.use_bbox, 
                 imsave = self.imsave
             )
+
             crop_img = cv2.resize(crop_img, (self.input_size, self.input_size))
             if (crop_img.shape[-1]==3):
                 crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
@@ -172,7 +173,6 @@ class PotholeDataset(Dataset):
             img_path.append(str(image_path))
             img_bbox.append(torch.tensor(v.bbox))
 
-        self.length = len(img_list)
         # ################# set samples ####################
         # import random
         # import shutil
@@ -186,7 +186,18 @@ class PotholeDataset(Dataset):
 
         self.classes = list(np.sort(np.unique(label_list)))
         self.class_to_idx = {string : i for i, string in enumerate(self.classes)}
-        self.input_set = (img_list, img_path, img_bbox, label_list) 
+        
+        # data upsample to 1:1:1:1
+        clcnt = [label_list.count(i) for i in self.classes]
+        for j, cl in enumerate(self.classes):
+            idx = [i for i, k in enumerate(label_list) if k==cl]
+            img_list.extend([img_list[kk] for kk in idx]*(round(max(clcnt)/clcnt[j])-1))
+            label_list.extend([label_list[kk] for kk in idx]*(round(max(clcnt)/clcnt[j])-1))
+            img_path.extend([img_path[kk] for kk in idx]*(round(max(clcnt)/clcnt[j])-1))
+            img_bbox.extend([img_bbox[kk] for kk in idx]*(round(max(clcnt)/clcnt[j])-1))
+        
+        self.input_set = (img_list, img_path, img_bbox, label_list)
+        self.length = len(img_list)
 
     def __getitem__(self, idx):
         image = self.input_set[0][idx]

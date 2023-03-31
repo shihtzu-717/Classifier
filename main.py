@@ -19,7 +19,7 @@ from pathlib import Path
 
 from timm.data.mixup import Mixup
 from timm.models import create_model
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+
 from timm.utils import ModelEma
 from optim_factory import create_optimizer, LayerDecayValueAssigner
 
@@ -47,7 +47,7 @@ def str2bool(v):
 
 def get_args_parser():
     parser = argparse.ArgumentParser('ConvNeXt training and evaluation script for image classification', add_help=False)
-    parser.add_argument('--batch_size', default=64, type=int,
+    parser.add_argument('--batch_size', default=128, type=int,
                         help='Per GPU batch size')
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--update_freq', default=1, type=int,
@@ -91,17 +91,18 @@ def get_args_parser():
     parser.add_argument('--layer_decay', type=float, default=1.0)
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0 (1e-6)')
-    parser.add_argument('--warmup_epochs', type=int, default=20, metavar='N',
+    parser.add_argument('--warmup_epochs', type=int, default=10, metavar='N',
                         help='epochs to warmup LR, if scheduler supports')
     parser.add_argument('--warmup_steps', type=int, default=-1, metavar='N',
                         help='num of steps to warmup LR, will overload warmup_epochs if set > 0')
+    parser.add_argument('--lossfn', type=str, default='BCE', help='loss function'),
 
     # Augmentation parameters
     parser.add_argument('--color_jitter', type=float, default=0.4, metavar='PCT',
                         help='Color jitter factor (default: 0.4)')
     parser.add_argument('--aa', type=str, default='rand-m9-mstd0.5-inc1', metavar='NAME',
                         help='Use AutoAugment policy. "v0" or "original". " + "(default: rand-m9-mstd0.5-inc1)'),
-    parser.add_argument('--smoothing', type=float, default=0.1,
+    parser.add_argument('--smoothing', type=float, default=0.0,
                         help='Label smoothing (default: 0.1)')
     parser.add_argument('--train_interpolation', type=str, default='bicubic',
                         help='Training interpolation (random, bilinear, bicubic default: "bicubic")')
@@ -150,16 +151,16 @@ def get_args_parser():
     # Dataset parameters
     # parser.add_argument('--data_path', default='/home/daree/data/pothole_data/raw', type=str,
     #                     help='dataset path')
-    # parser.add_argument('--data_path', default='/home/daree/data/pothole_data/set_2/train/pad_f2_336_shift_cls012_yp24n1tp1/train', type=str,
-    #                     help='dataset path')
-    parser.add_argument('--data_path', default='/home/daree/nas/ambclss/2nd_data', type=str,
+    parser.add_argument('--data_path', default='/home/daree/data/pothole_data/set_1/pad_f_256_bbox_cls012/train', type=str,
                         help='dataset path')
+    # parser.add_argument('--data_path', default='/home/daree/nas/ambclss/2nd_data', type=str,
+    #                     help='dataset path')
     # parser.add_argument('--eval_data_path', default="/home/daree/nas/ambclss/2st_data", type=str,
     #                     help='dataset path for evaluation')
     # # parser.add_argument('--eval_data_path', default=None, type=str,
     #                     help='dataset path for evaluation')
-    parser.add_argument('--eval_data_path', default="/home/daree/nas/dataset1/images", type=str,
-                        help='dataset path for evaluation')
+    parser.add_argument('--eval_data_path', default='/home/daree/data/pothole_data/set_1/pad_f_256_bbox_cls012/val', type=str,
+                        help='dataset path')
 
     parser.add_argument('--nb_classes', default=2, type=int,
                         help='number of the classification types')
@@ -170,13 +171,13 @@ def get_args_parser():
                         help='path where to save, empty for no saving')
     parser.add_argument('--log_dir', default='log',
                         help='path where to tensorboard log')
+    parser.add_argument('--log_name', default='test',
+                        help='name where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=0, type=int)
 
     parser.add_argument('--resume', default='', help='resume from checkpoint')
-    # parser.add_argument('--resume', default='/home/unmanned/results/set_2/b/pad_f2_336_shift_cls012_yp24n1tp1/checkpoint-best.pth',
-    #                      help='resume from checkpoint')
     
     parser.add_argument('--auto_resume', type=str2bool, default=False)
     parser.add_argument('--save_ckpt', type=str2bool, default=True)
@@ -218,9 +219,11 @@ def get_args_parser():
                         help="Save model checkpoints as W&B Artifacts.")
     
     # Image Crop & Padding 
-    parser.add_argument('--use_cropimg', type=str2bool, default=False,
+    parser.add_argument('--use_cropimg', type=str2bool, default=True,
                         help='Use oringinal code for data input')
-    parser.add_argument('--upsample', default=[1, 10], nargs='+', type=int)
+    parser.add_argument('--split_file_write', type=str2bool, default=True,
+                        help='split_file_write')
+    parser.add_argument('--upsample', default=[1, 20, 1, 25], nargs='+', type=int)
     parser.add_argument('--padding', type=str, default='FIX2',
                         help='select padding mode')
     parser.add_argument('--padding_size', type=float, default=0.0,
@@ -241,6 +244,10 @@ def get_args_parser():
     parser.add_argument('--pred_save_path', type=str, default='/home/daree/nas/set1', help='set root path for save result images')
     parser.add_argument('--pred_eval', type=str2bool, default=True, help='Save prediction evaluation')
     parser.add_argument('--pred_eval_name', type=str, default='', help='name for saving graph')
+
+    parser.add_argument('--soft_label_ratio', type=float, default=0.7, help='name for saving graph')
+    parser.add_argument('--label_ratio', type=float, default=0.95, help='name for saving graph')
+
 
     return parser
 
@@ -273,7 +280,7 @@ def main(args):
             sets = get_split_data(data_root=Path(args.eval_data_path), 
                                   test_r=args.test_val_ratio[0], 
                                   val_r=args.test_val_ratio[1], 
-                                  file_write=False,
+                                  file_write=args.split_file_write,
                                   label_list = args.label_list) 
             dataset_val = PotholeDataset(
                 data_set=sets['test'], 
@@ -286,7 +293,7 @@ def main(args):
             sets = get_split_data(data_root=Path(args.data_path), 
                                   test_r=args.test_val_ratio[0], 
                                   val_r=args.test_val_ratio[1], 
-                                  file_write=False,
+                                  file_write=args.split_file_write,
                                   label_list = args.label_list) 
             dataset_train = PotholeDataset(
                 data_set=sets['train'], 
@@ -298,6 +305,15 @@ def main(args):
                 args=args, 
                 is_train=False) 
             # args.nb_classes=len(dataset_train.classes)
+    
+    s=num_cl_tr=num_cl_vl=''
+    for cl in dataset_train.classes:
+        s = s + '   ' + cl
+        num_cl_tr = num_cl_tr + '       ' + str(len([i for i in dataset_train.input_set[3] if i==cl]))
+        num_cl_vl = num_cl_vl + '       ' + str(len([i for i in dataset_val.input_set[3] if i==cl]))
+    print(s)
+    print(num_cl_tr)
+    print(num_cl_vl)
         
     num_tasks = utils.get_world_size()
     global_rank = utils.get_rank()
@@ -312,12 +328,17 @@ def main(args):
                     'This will slightly alter validation results as extra duplicate entries are added to achieve '
                     'equal num of samples per-process.')
         sampler_val = torch.utils.data.DistributedSampler(
-            dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=False)
+            dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)
     else:
-        sampler_val = torch.utils.data.RandomSampler(dataset_val)
+        sampler_val = torch.utils.data.RandomSampler(dataset_val, shuffle=True)
 
     if global_rank == 0 and args.log_dir is not None:
-        
+        KST = datetime.timezone(datetime.timedelta(hours=9))
+        d = datetime.datetime.now(tz=KST)
+        # args.log_dir = args.log_dir + f'/time_{d.strftime("%H%M%S")}'
+        # args.log_dir = args.log_dir + f'/pad_{args.padding}_padsize_{args.padding_size}_box_{args.use_bbox}_shift_{args.use_shift}_ratio_{args.soft_label_ratio}'
+        args.log_dir = args.log_dir + '/' + args.log_name
+
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = utils.TensorboardLogger(log_dir=args.log_dir)
     else:
@@ -450,16 +471,8 @@ def main(args):
     else:
         print("wd_schedule_values is empty")
 
-    from loss import softLabelLoss
-
-    criterion = softLabelLoss()
-    # if mixup_fn is not None:
-    #     # smoothing is handled with mixup label transform
-    #     criterion = SoftTargetCrossEntropy()
-    # elif args.smoothing > 0.:
-    #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
-    # else:
-        # criterion = torch.nn.CrossEntropyLoss()
+    from softLabelLoss import softLabelLoss
+    criterion = softLabelLoss(args, mixup_fn)
 
     print("criterion = %s" % str(criterion))
 
@@ -518,7 +531,7 @@ def main(args):
                     utils.save_model(
                         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                         loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
-            print(f'Max accuracy: {max_accuracy:.2f}%')
+            print(f'Max accuracy: {max_accuracy:.2f}%\n\n')
 
             if log_writer is not None:
                 log_writer.update(test_acc1=test_stats['acc1'], head="perf", step=epoch)
