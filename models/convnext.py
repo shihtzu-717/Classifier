@@ -111,10 +111,14 @@ class ConvNeXt(nn.Module):
             x = self.stages[i](x)
         return self.norm(x.mean([-2, -1])) # global average pooling, (N, C, H, W) -> (N, C)
 
-    def forward(self, x):
-        x = self.forward_features(x)
-        x = self.head(x)
-        return x
+    def forward(self, x, onlyfc=True):
+        x_layernorm = self.forward_features(x)
+        x = self.head(x_layernorm)
+        if onlyfc:
+            return x
+        else:
+            return x, x_layernorm
+
 
 class LayerNorm(nn.Module):
     r""" LayerNorm that supports two data formats: channels_last (default) or channels_first. 

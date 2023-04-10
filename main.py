@@ -85,6 +85,9 @@ def get_args_parser():
     parser.add_argument('--weight_decay_end', type=float, default=None, help="""Final value of the
         weight decay. We use a cosine schedule for WD and using a larger decay by
         the end of training improves performance for ViTs.""")
+    parser.add_argument('--cosine_scheduler', type=str2bool, default=True, 
+                        help='learn with cosine scheduler')
+    
 
     parser.add_argument('--lr', type=float, default=4e-4, metavar='LR',
                         help='learning rate (default: 4e-3), with total batch size 4096')
@@ -455,12 +458,15 @@ def main(args):
         get_layer_scale=assigner.get_scale if assigner is not None else None)
 
     loss_scaler = NativeScaler() # if args.use_amp is False, this won't be used
-
-    print("Use Cosine LR scheduler")
-    lr_schedule_values = utils.cosine_scheduler(
-        args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
-        warmup_epochs=args.warmup_epochs, warmup_steps=args.warmup_steps,
-    )
+    
+    if args.cosine_scheduler:
+        print("Use Cosine LR scheduler")
+        lr_schedule_values = utils.cosine_scheduler(
+            args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
+            warmup_epochs=args.warmup_epochs, warmup_steps=args.warmup_steps,
+        )
+    else:
+        lr_schedule_values = None
 
     if args.weight_decay_end is None:
         args.weight_decay_end = args.weight_decay

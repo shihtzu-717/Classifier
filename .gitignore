@@ -275,3 +275,4 @@ log_pretest/pad_PIXEL_padsize_50.0_box_True_shift_True_ratio_0.7/events.out.tfev
 log_pretest/pad_PIXEL_padsize_50.0_box_True_shift_True_ratio_0.95/events.out.tfevents.1679908594.fe62a5bf571d.44503.0
 __pycache__/datasets.cpython-38.pyc
 __pycache__/engine.cpython-38.pyc
+csv/perf_test_acc1_ema.csv
