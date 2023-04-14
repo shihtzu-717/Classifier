@@ -132,8 +132,8 @@ def make_list(data_root, label_list=None, split_info=None):
     if split_info is None:
         for annotation in data_root.glob('*.txt'):
             image_path = find_image(annotation)
-            # image_path = image_path.relative_to(data_root)
-            # annotation = annotation.relative_to(data_root)
+            image_path = image_path.relative_to(data_root)
+            annotation = annotation.relative_to(data_root)
             for line_idx, class_id, bbox in read_annotation(annotation):
                 raw_data = (
                     data_root, image_path, 
@@ -143,14 +143,16 @@ def make_list(data_root, label_list=None, split_info=None):
 
     elif label_list is None:
         for annotation in data_root.glob('**/*.txt'):
+            # annotation = annotation.relative_to(data_root)
             try:
                 image_path = find_image(annotation)
             except:
                 newanno = Path(str(annotation).replace('annotations', 'images'))
                 image_path = find_image(newanno)
-            
+
+            image_path = image_path.relative_to(data_root)
             try:                
-                split_tag = split_info[str(image_path)]
+                split_tag = split_info[image_path]
             except:
                 print(f'{image_path} is not exist.')
                 continue
@@ -209,10 +211,12 @@ def split_data(data_root, test_ratio, val_ratio, label_list=None, file_write=Fal
             split_info.extend(glob.glob(str(data_root/ '**' / files), recursive=True))
             
         dict_val = []
+        cls_lists = []
         for cls in os.listdir(data_root):
-            cls_list = [i for i in split_info if Path(i).relative_to(data_root).parts[0]==cls]
+            cls_list = [Path(i).relative_to(data_root) for i in split_info if Path(i).relative_to(data_root).parts[0]==cls]
             dict_val.extend([random.choices(split_population, split_weights)[0] for i in range(len(cls_list))])
-        split_info = dict(zip(split_info, dict_val))
+            cls_lists.extend(cls_list)
+        split_info = dict(zip(cls_lists, dict_val))
         # split_info = defaultdict(lambda: random.choices(split_population, split_weights)[0], split_info)
 
     data_list = make_list(data_root, label_list, split_info)

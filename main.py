@@ -132,7 +132,7 @@ def get_args_parser():
                         help='mixup alpha, mixup enabled if > 0.')
     parser.add_argument('--cutmix', type=float, default=0.0,
                         help='cutmix alpha, cutmix enabled if > 0.')
-    parser.add_argument('--use_softlabel', type=str2bool, default=True,
+    parser.add_argument('--use_softlabel', type=str2bool, default=False,
                         help='Softlabel using 2classes output for 4classes input. ')
     
 
@@ -155,11 +155,11 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/home/daree/nas/ambclss/1st_data', type=str,
+    parser.add_argument('--data_path', default='/home/daree/nas/Classification_Model/ambclass/1st_data', type=str,
                         help='dataset path')
-    parser.add_argument('--eval_data_path', default="/home/daree/nas/ambclss/1st_data", type=str,
+    parser.add_argument('--eval_data_path', default="/home/daree/nas/Classification_Model/ambclass/1st_data", type=str,
                         help='dataset path for evaluation')
-    parser.add_argument('--nb_classes', default=2, type=int,
+    parser.add_argument('--nb_classes', default=4, type=int,
                         help='number of the classification types')
     parser.add_argument('--imagenet_default_mean_and_std', type=str2bool, default=True)
     parser.add_argument('--data_set', default='image_folder', choices=['CIFAR', 'IMNET', 'image_folder'],
