@@ -13,8 +13,8 @@ padding = ['FIX', 'PIXEL', 'FIX2']
 padding_size = [50 ,100, 256, 384, 448]
 use_bbox = ['False']
 use_shift = ['False', 'True']
-target_label_ratio = [1, 0.98, 0.96, 0.94, 0.92]
-soft_label_ratio = [0.9, 0.8, 0.7, 0.6]
+target_label_ratio = [1]
+soft_label_ratio = [1]
 warmup = [0]
 
 base = """CUDA_VISIBLE_DEVICES=1 python main.py \
@@ -23,16 +23,18 @@ base = """CUDA_VISIBLE_DEVICES=1 python main.py \
             --epochs 30 --weight_decay 1e-8 \
             --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
             --finetune checkpoint/convnext_base_22k_224.pth \
-            --data_path /home/daree/nas/ambclss/1st_data \
-            --eval_data_path /home/daree/nas/ambclss/1st_data \
+            --data_path /home/daree/nas/ambclss/2nd_data \
+            --eval_data_path /home/daree/nas/ambclss/2nd_data \
             --model_ema true --model_ema_eval true \
             --data_set image_folder \
-            --nb_classes 2 \
+            --nb_classes 4 \
+            --use_softlabel 'False' \
             --use_cropimg=False \
             --auto_resume=False \
             --test_val_ratio 0.1 0.1 \
             --use_cropimg False \
             --save_ckpt False \
+            --lossfn BCE \
             --use_class 0"""
 
 for pad in padding:

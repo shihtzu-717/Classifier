@@ -1,3 +1,4 @@
+import os
 import cv2
 import pickle
 import random
@@ -131,7 +132,7 @@ def make_list(data_root, label_list=None, split_info=None):
     if split_info is None:
         for annotation in data_root.glob('*.txt'):
             image_path = find_image(annotation)
-            image_path = image_path.relative_to(data_root)
+            # image_path = image_path.relative_to(data_root)
             # annotation = annotation.relative_to(data_root)
             for line_idx, class_id, bbox in read_annotation(annotation):
                 raw_data = (
@@ -147,8 +148,14 @@ def make_list(data_root, label_list=None, split_info=None):
             except:
                 newanno = Path(str(annotation).replace('annotations', 'images'))
                 image_path = find_image(newanno)
-            image_path = image_path.relative_to(data_root)
-            split_tag = split_info[annotation.relative_to(data_root)]
+            
+            try:                
+                split_tag = split_info[str(image_path)]
+            except:
+                print(f'{image_path} is not exist.')
+                continue
+            # image_path = image_path.relative_to(data_root)
+            # split_tag = split_info[annotation.relative_to(data_root)]
             # annotation = annotation.relative_to(data_root)
             for line_idx, class_id, bbox in read_annotation(annotation):
                 label = annotation.parts[-3]
@@ -183,7 +190,7 @@ def make_list(data_root, label_list=None, split_info=None):
                     print(f'{data_sub_root.name}\t{label}\t{class_id}\t{test_cnt}\t{val_cnt}\t{train_cnt}')
     return data_list
 
-def split_data(data_root, test_ratio, val_ratio, label_list=None, file_write=True):
+def split_data(data_root, test_ratio, val_ratio, label_list=None, file_write=False):
     split_info_path = data_root / f'split_info_{test_ratio}_{val_ratio}'
     
     train_ratio = 1 - (test_ratio + val_ratio)
@@ -200,9 +207,14 @@ def split_data(data_root, test_ratio, val_ratio, label_list=None, file_write=Tru
         for files in types:
             # glob("./**/*.jpg", recursive=True)
             split_info.extend(glob.glob(str(data_root/ '**' / files), recursive=True))
-        split_info = dict.fromkeys(map(Path,split_info),random.choices(split_population, split_weights)[0])
+            
+        dict_val = []
+        for cls in os.listdir(data_root):
+            cls_list = [i for i in split_info if Path(i).relative_to(data_root).parts[0]==cls]
+            dict_val.extend([random.choices(split_population, split_weights)[0] for i in range(len(cls_list))])
+        split_info = dict(zip(split_info, dict_val))
+        # split_info = defaultdict(lambda: random.choices(split_population, split_weights)[0], split_info)
 
-    split_info = defaultdict(lambda: random.choices(split_population, split_weights)[0], split_info)
     data_list = make_list(data_root, label_list, split_info)
     if file_write:
         print(f'make {split_info_path}')

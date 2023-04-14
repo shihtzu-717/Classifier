@@ -7,6 +7,8 @@ class softLabelLoss(nn.Module):
     def __init__(self, args, mixup_fn) -> None:
         super().__init__()
         lossfn = args.lossfn
+        self.nb_class = args.nb_classes
+        self.use_softlabel = args.use_softlabel
         self.ratio = args.soft_label_ratio
         self.label_ratio = args.label_ratio
         if mixup_fn is not None:
@@ -27,27 +29,24 @@ class softLabelLoss(nn.Module):
     def partial_onehot(self, target, size=2):
         onehot = torch.zeros(len(target), size).to(target.device)
         for i, t in enumerate(target):
-            if t == 2:
+            if t == 2: # neg
                 onehot[i][0] = self.label_ratio
                 onehot[i][1] = 1-self.label_ratio
-            elif t == 3:
+            elif t == 3: # pos
                 onehot[i][0] = 1-self.label_ratio
                 onehot[i][1] = self.label_ratio
-            elif t == 0:
+            elif t == 0: # amb_neg
                 onehot[i][0] = self.ratio
                 onehot[i][1] = 1-self.ratio
-            elif t == 1:
+            elif t == 1: # amb_pos
                 onehot[i][0] = 1-self.ratio
                 onehot[i][1] = self.ratio
         return onehot
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        leninp = input.shape
-        lentar = torch.nn.functional.one_hot(target).shape
-
-        if leninp != lentar:
+        if self.use_softlabel:
             target = self.partial_onehot(target)
         else:
-            target = torch.nn.functional.one_hot(target).float()
+            target = torch.nn.functional.one_hot(target, num_classes=self.nb_class).float()
         loss = self.criterion(input, target)
         return loss

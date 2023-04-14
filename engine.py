@@ -31,7 +31,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None, log_writer=None,
                     wandb_logger=None, start_steps=None, lr_schedule_values=None, wd_schedule_values=None,
-                    num_training_steps_per_epoch=None, update_freq=None, use_amp=False):
+                    num_training_steps_per_epoch=None, update_freq=None, use_amp=False, use_softlabel=False):
     model.train(True)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -101,7 +101,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         torch.cuda.synchronize()
 
         if mixup_fn is None:
-            targets = torch.tensor([0 if i==2 or i==0 else 1 for i in targets]).to(device)
+            if use_softlabel:
+                targets = torch.tensor([0 if i==2 or i==0 else 1 for i in targets]).to(device)
             class_acc = (output.max(-1)[-1] == targets).float().mean()*100
         else:
             class_acc = None
@@ -152,7 +153,63 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 
 @torch.no_grad()
-def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), use_amp=False):
+def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), use_amp=False, use_softlabel=False):
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    header = 'Test:'
+
+    # switch to evaluation mode
+    model.eval()
+    for batch in metric_logger.log_every(data_loader, 10, header):
+        images = batch[0].to(device, non_blocking=True)
+        target = batch[-1].to(device, non_blocking=True)
+        if use_softlabel:
+            target = torch.tensor([0 if i==2 or i==0 else 1 for i in target]).to(device)
+
+        # compute output
+        if use_amp:
+            with torch.cuda.amp.autocast():
+                output = model(images)
+                loss = criterion(output, target)
+        else:
+            output = model(images)
+            loss = criterion(output, target)
+        
+        acc1, acc5 = accuracy(output, target, topk=(1, 2)) # top5는 의미 없어 2로 변경
+
+        batch_size = images.shape[0]
+        metric_logger.update(loss=loss.item())
+        metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
+        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+
+        for class_name, class_id in data_loader.dataset.class_to_idx.items():
+            if use_softlabel:
+                class_id = 0 if class_id==2 or class_id==0 else 1 
+                class_name = 'negative' if class_name == 'amb_neg' else class_name
+                class_name = 'positive' if class_name == 'amb_pos' else class_name
+
+            mask = (target == class_id)
+            target_class = torch.masked_select(target, mask)
+            data_size = target_class.shape[0]
+            if data_size > 0:
+                mask = mask.unsqueeze(1).expand_as(output)
+                output_class = torch.masked_select(output, mask)
+                if use_softlabel:
+                    output_class = output_class.view(-1, 2)
+                else:
+                    output_class = output_class.view(-1, len(data_loader.dataset.class_to_idx))
+                acc1_class, acc5_class = accuracy(output_class, target_class, topk=(1, 2)) # top5는 의미 없어 2로 변경
+                metric_logger.meters[f'acc1_{class_name}'].update(acc1_class.item(), n=data_size)
+                metric_logger.meters[f'acc5_{class_name}'].update(acc5_class.item(), n=data_size)
+
+    # gather the stats from all processes
+    metric_logger.synchronize_between_processes()
+    print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
+          .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
+    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+
+@torch.no_grad()
+def evaluate_temp(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), use_amp=False):
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
 
@@ -172,8 +229,11 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
             output = model(images)
             loss = criterion(output, target)
         
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        metric_logger.meters['images'].update(images.item(), n=batch_size)
+        metric_logger.meters['targets'].update(target.item(), n=batch_size)
 
+        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)

@@ -132,7 +132,10 @@ def get_args_parser():
                         help='mixup alpha, mixup enabled if > 0.')
     parser.add_argument('--cutmix', type=float, default=0.0,
                         help='cutmix alpha, cutmix enabled if > 0.')
+    parser.add_argument('--use_softlabel', type=str2bool, default=True,
+                        help='Softlabel using 2classes output for 4classes input. ')
     
+
     parser.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,
                         help='cutmix min/max ratio, overrides alpha and enables cutmix if set (default: None)')
     parser.add_argument('--mixup_prob', type=float, default=1.0,
@@ -152,19 +155,10 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    # parser.add_argument('--data_path', default='/home/daree/data/pothole_data/raw', type=str,
-    #                     help='dataset path')
-    parser.add_argument('--data_path', default='/home/daree/data/pothole_data/set_1/pad_f_256_bbox_cls012/train', type=str,
+    parser.add_argument('--data_path', default='/home/daree/nas/ambclss/1st_data', type=str,
                         help='dataset path')
-    # parser.add_argument('--data_path', default='/home/daree/nas/ambclss/2nd_data', type=str,
-    #                     help='dataset path')
-    # parser.add_argument('--eval_data_path', default="/home/daree/nas/ambclss/2st_data", type=str,
-    #                     help='dataset path for evaluation')
-    # # parser.add_argument('--eval_data_path', default=None, type=str,
-    #                     help='dataset path for evaluation')
-    parser.add_argument('--eval_data_path', default='/home/daree/data/pothole_data/set_1/pad_f_256_bbox_cls012/val', type=str,
-                        help='dataset path')
-
+    parser.add_argument('--eval_data_path', default="/home/daree/nas/ambclss/1st_data", type=str,
+                        help='dataset path for evaluation')
     parser.add_argument('--nb_classes', default=2, type=int,
                         help='number of the classification types')
     parser.add_argument('--imagenet_default_mean_and_std', type=str2bool, default=True)
@@ -174,7 +168,7 @@ def get_args_parser():
                         help='path where to save, empty for no saving')
     parser.add_argument('--log_dir', default='log',
                         help='path where to tensorboard log')
-    parser.add_argument('--log_name', default='test',
+    parser.add_argument('--log_name', default=None,
                         help='name where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -222,7 +216,7 @@ def get_args_parser():
                         help="Save model checkpoints as W&B Artifacts.")
     
     # Image Crop & Padding 
-    parser.add_argument('--use_cropimg', type=str2bool, default=True,
+    parser.add_argument('--use_cropimg', type=str2bool, default=False,
                         help='Use oringinal code for data input')
     parser.add_argument('--split_file_write', type=str2bool, default=True,
                         help='split_file_write')
@@ -237,7 +231,7 @@ def get_args_parser():
                         help="enable use_bbox mode in image cropping")
     parser.add_argument('--imsave', type=str2bool, default=False,
                         help="enable imsave mode in image cropping")
-    parser.add_argument('--test_val_ratio', default=[0.1, 0.1], nargs='+', type=float)
+    parser.add_argument('--test_val_ratio', default=[0.0, 0.2], nargs='+', type=float)
     parser.add_argument('--use_class', default=[0,1,2,3,4,5,6], nargs='+', type=int)
     parser.add_argument('--label_list', default=None, nargs='+', type=str) # ['positive', 'negative']
 
@@ -309,14 +303,14 @@ def main(args):
                 is_train=False) 
             # args.nb_classes=len(dataset_train.classes)
     
-    s=num_cl_tr=num_cl_vl=''
-    for cl in dataset_train.classes:
-        s = s + '   ' + cl
-        num_cl_tr = num_cl_tr + '       ' + str(len([i for i in dataset_train.input_set[3] if i==cl]))
-        num_cl_vl = num_cl_vl + '       ' + str(len([i for i in dataset_val.input_set[3] if i==cl]))
-    print(s)
-    print(num_cl_tr)
-    print(num_cl_vl)
+        s=num_cl_tr=num_cl_vl=''
+        for cl in dataset_train.classes:
+            s = s + '   ' + cl
+            num_cl_tr = num_cl_tr + '       ' + str(len([i for i in dataset_train.input_set[3] if i==cl]))
+            num_cl_vl = num_cl_vl + '       ' + str(len([i for i in dataset_val.input_set[3] if i==cl]))
+        print(s)
+        print(num_cl_tr)
+        print(num_cl_vl)
         
     num_tasks = utils.get_world_size()
     global_rank = utils.get_rank()
@@ -338,9 +332,11 @@ def main(args):
     if global_rank == 0 and args.log_dir is not None:
         KST = datetime.timezone(datetime.timedelta(hours=9))
         d = datetime.datetime.now(tz=KST)
-        # args.log_dir = args.log_dir + f'/time_{d.strftime("%H%M%S")}'
-        # args.log_dir = args.log_dir + f'/pad_{args.padding}_padsize_{args.padding_size}_box_{args.use_bbox}_shift_{args.use_shift}_ratio_{args.soft_label_ratio}'
-        args.log_dir = args.log_dir + '/' + args.log_name
+        if args.log_name is not None:
+            args.log_dir = args.log_dir + '/' + args.log_name
+        else:
+            args.log_dir = args.log_dir + f'/time_{d.strftime("%y%m%d")}_{d.strftime("%H%M%S")}'
+        
 
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = utils.TensorboardLogger(log_dir=args.log_dir)
@@ -488,7 +484,7 @@ def main(args):
 
     if args.eval:
         print(f"Eval only mode")
-        test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp)
+        test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp, use_softlabel=args.use_softlabel)
         # test_stats = evaluate(data_loader_val, model, device, use_amp=args.use_amp)
         print(f"Accuracy of the network on {len(dataset_val)} test images: {test_stats['acc1']:.5f}%")
         with open('results/eval.txt', 'a', encoding='utf-8') as af:
@@ -521,7 +517,7 @@ def main(args):
             log_writer=log_writer, wandb_logger=wandb_logger, start_steps=epoch * num_training_steps_per_epoch,
             lr_schedule_values=lr_schedule_values, wd_schedule_values=wd_schedule_values,
             num_training_steps_per_epoch=num_training_steps_per_epoch, update_freq=args.update_freq,
-            use_amp=args.use_amp
+            use_amp=args.use_amp, use_softlabel=args.use_softlabel
         )
         if args.output_dir and args.save_ckpt:
             if (epoch + 1) % args.save_ckpt_freq == 0 or epoch + 1 == args.epochs:
@@ -529,7 +525,7 @@ def main(args):
                     args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch=epoch, model_ema=model_ema)
         if data_loader_val is not None:
-            test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp)
+            test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp, use_softlabel=args.use_softlabel)
             print(f"Accuracy of the model on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
             if max_accuracy < test_stats["acc1"]:
                 max_accuracy = test_stats["acc1"]
@@ -551,7 +547,7 @@ def main(args):
 
             # repeat testing routines for EMA, if ema eval is turned on
             if args.model_ema and args.model_ema_eval:
-                test_stats_ema = evaluate(data_loader_val, model_ema.ema, device, use_amp=args.use_amp)
+                test_stats_ema = evaluate(data_loader_val, model_ema.ema, device, use_amp=args.use_amp, use_softlabel=args.use_softlabel)
                 print(f"Accuracy of the model EMA on {len(dataset_val)} test images: {test_stats_ema['acc1']:.1f}%")
                 if max_accuracy_ema < test_stats_ema["acc1"]:
                     max_accuracy_ema = test_stats_ema["acc1"]
