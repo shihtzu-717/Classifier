@@ -1,4 +1,5 @@
-/log
+/log*
+__pycache__/*
 /results
 /wandb
 /temp
@@ -6,21 +7,10 @@
 /checkpoint
 /.vscode
 
-/log_2class
-/log_4class_test
-/log_4class_set2test
-/log_pretest
-
+__pycache__/datasets.cpython-38.pyc
 __pycache__/engine.cpython-38.pyc
+__pycache__/optim_factory.cpython-38.pyc
 __pycache__/preprocess_data.cpython-38.pyc
-__pycache__/engine.cpython-38.pyc
-__pycache__/loss.cpython-38.pyc
-__pycache__/preprocess_data.cpython-38.pyc
-__pycache__/softLabelLoss.cpython-38.pyc
-__pycache__/preview/Pytorch/output_class.png
-__pycache__/preview/Pytorch/target.png
-__pycache__/preview/Pytorch/targets.png
-run_warm.py
-run.py
-__pycache__/engine.cpython-38.pyc
-__pycache__/preprocess_data.cpython-38.pyc
+__pycache__/utils.cpython-38.pyc
+models/__pycache__/convnext_isotropic.cpython-38.pyc
+models/__pycache__/convnext.cpython-38.pyc
