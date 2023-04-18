@@ -6,11 +6,5 @@ __pycache__/*
 /csv
 /checkpoint
 /.vscode
-
-__pycache__/datasets.cpython-38.pyc
-__pycache__/engine.cpython-38.pyc
-__pycache__/optim_factory.cpython-38.pyc
-__pycache__/preprocess_data.cpython-38.pyc
-__pycache__/utils.cpython-38.pyc
-models/__pycache__/convnext_isotropic.cpython-38.pyc
-models/__pycache__/convnext.cpython-38.pyc
+/image
+*.pyc
