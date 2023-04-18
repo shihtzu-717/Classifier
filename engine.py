@@ -26,6 +26,7 @@ from timm.models import create_model
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
 from pathlib import Path
 
+
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
@@ -265,6 +266,9 @@ def evaluate_temp(data_loader, model, device, criterion=torch.nn.CrossEntropyLos
 
 @torch.no_grad()
 def prediction(args, device):
+    from datasets import PotholeDataset, get_split_data
+    from sklearn.metrics import precision_score , recall_score , confusion_matrix, ConfusionMatrixDisplay
+
     imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
     mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
     std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
@@ -287,13 +291,20 @@ def prediction(args, device):
     
     data_list = []
     result = []
-    data_root=Path(args.eval_data_path)
-    data_list = preprocess_data.make_list(data_root)['data']
+    # data_root=Path(args.eval_data_path)
+    
+    sets = get_split_data(data_root=Path(args.eval_data_path), 
+                                  test_r=args.test_val_ratio[0], 
+                                  val_r=args.test_val_ratio[1], 
+                                  file_write=args.split_file_write,
+                                  label_list = args.label_list) 
+        
+    data_list = sets['test'] if len(sets['test']) > 0 else sets['val']
     tonorm = transforms.Normalize(mean, std)
     for data in tqdm(data_list, desc='Image Cropping... '):
         crop_img = preprocess_data.crop_image(
-            image_path = data[0] / data[1], 
-            bbox = data[4], 
+            image_path = data[0] / data.image_path, 
+            bbox = data.bbox, 
             padding = args.padding, 
             padding_size = args.padding_size, 
             use_shift = args.use_shift, 
@@ -302,6 +313,18 @@ def prediction(args, device):
         )
         spltnm = str(data[1]).split('_')
         target = int(spltnm[0][1]) if spltnm[0][0] == 't' else -1
+
+        if target == -1:
+            if data[1] == 'amb_neg':
+                target = 0 # amb_neg
+            elif data[1] == 'amb_pos':
+                target = 1 # amb_pos
+            elif data[1] == 'negative':
+                target = 2 # neg
+            elif data[1] == 'positive':
+                target = 3 # pos
+            else:
+                target =-1
 
         crop_img = cv2.resize(crop_img, (args.input_size, args.input_size))
         crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
@@ -312,7 +335,7 @@ def prediction(args, device):
         output_tensor = model(input_tensor)
         
         pred, conf = int(torch.argmax(output_tensor).detach().cpu().numpy()), float((torch.max(output_tensor)).detach().cpu().numpy())
-        result.append((pred, conf, target, data[0] / data[1]))
+        result.append((pred, conf, target, data[0] / data.image_path))
         
     ##################################### save result image & anno #####################################
     if args.pred_save:
@@ -325,7 +348,6 @@ def prediction(args, device):
         pos = [x[-1] for x in result if x[0]==1]
         neg = [x[-1] for x in result if x[0]==0]
         
-
         for n in tqdm(neg, desc='Negative images copying... '):
             shutil.copy(n, Path(args.pred_save_path) /'negative' / 'images')
             shutil.copy(str(n)[:-3]+'txt', Path(args.pred_save_path) / 'negative' / 'annotations')
@@ -353,18 +375,42 @@ def prediction(args, device):
             plt.close()
 
         else:
-            # collect data  
-            conf_TN = [x[1] for x in result if (x[0]==x[2] and x[0]==0)]
-            conf_TP = [x[1] for x in result if (x[0]==x[2] and x[0]==1)]
-            conf_FN = [x[1] for x in result if (x[0]!=x[2] and x[0]==0)]
-            conf_FP = [x[1] for x in result if (x[0]!=x[2] and x[0]==1)]
+            y_pred = [i[0] for i in result]
+            y_target = [i[2] for i in result]
+            if args.use_softlabel:
+                y_target = [0 if i==2 or i==0 else 1 for i in y_target]
+
+            precision = precision_score(y_target, y_pred, average= "macro")
+            recall = recall_score(y_target, y_pred, average= "macro")
+            cm = confusion_matrix(y_target, y_pred)
+            cm_display = ConfusionMatrixDisplay(cm).plot()
+            plt.title('정밀도: {0:.4f}, 재현율: {1:.4f}'.format(precision, recall))
+            plt.savefig(args.pred_eval_name+'cm.png')
+            plt.close()
+
+            print(cm)
+            print('정밀도: {0:.4f}, 재현율: {1:.4f}'.format(precision, recall))
+
+            # collect data 
+            conf_TN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p==0] 
+            conf_TP = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p==1] 
+            conf_FN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p!=t and p==0] 
+            conf_FP = [x[1] for p, t, x in zip(y_pred, y_target,result) if p!=t and p==1] 
+            # conf_TN = [x[1] for x in result if (x[0]==x[2] and x[0]==0)]
+            # conf_TP = [x[1] for x in result if (x[0]==x[2] and x[0]==1)]
+            # conf_FN = [x[1] for x in result if (x[0]!=x[2] and x[0]==0)]
+            # conf_FP = [x[1] for x in result if (x[0]!=x[2] and x[0]==1)]
             
             # get index 
-            itn = [i for i in range(len(result)) if (result[i][0]==result[i][2] and result[i][0]==0)]
-            itp = [i for i in range(len(result)) if (result[i][0]==result[i][2] and result[i][0]==1)]
-            ifn = [i for i in range(len(result)) if (result[i][0]!=result[i][2] and result[i][0]==0)]
-            ifp = [i for i in range(len(result)) if (result[i][0]!=result[i][2] and result[i][0]==1)]
-
+            itn = [i for i in range(len(result)) if (y_pred[i]==y_target[i] and y_pred[i]==0)]
+            itp = [i for i in range(len(result)) if (y_pred[i]==y_target[i] and y_pred[i]==1)]
+            ifn = [i for i in range(len(result)) if (y_pred[i]!=y_target[i] and y_pred[i]==0)]
+            ifp = [i for i in range(len(result)) if (y_pred[i]!=y_target[i] and y_pred[i]==1)]
+            # itn = [i for i in range(len(result)) if (result[i][0]==result[i][2] and result[i][0]==0)]
+            # itp = [i for i in range(len(result)) if (result[i][0]==result[i][2] and result[i][0]==1)]
+            # ifn = [i for i in range(len(result)) if (result[i][0]!=result[i][2] and result[i][0]==0)]
+            # ifp = [i for i in range(len(result)) if (result[i][0]!=result[i][2] and result[i][0]==1)]
+            
             # histogram T-F 
             plt.hist(((conf_TN+conf_TP),(conf_FN+conf_FP)), label=('True', 'False'),histtype='bar', bins=50)
             plt.xlabel('Confidence')
