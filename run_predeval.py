@@ -2,20 +2,20 @@ import os
 import glob
 from pathlib import Path
 
-base = """CUDA_VISIBLE_DEVICES=2 python main.py \
+base = """CUDA_VISIBLE_DEVICES=1 python main.py \
             --lr 1e-6 \
             --use_cropimg=False \
             --auto_resume=False \
             --drop_path 0.2 \
             --layer_decay 0.8 \
             --test_val_ratio 1.0 0.0 \
-            --nb_classes 2 \
+            --nb_classes 4 \
             --use_class 0 1 \
             --pred_eval True \
             --pred True"""
 
 models = (glob.glob('results/b/**/checkpoint-29.pth'))
-datas = ["/home/daree/nas/Classification_Model/ambclass/2nd_data"]
+datas = ["/home/daree/nas/ambclass/2nd_data"]
 
 for data in datas:
     for ckpt in models:

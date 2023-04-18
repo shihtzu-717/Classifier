@@ -335,7 +335,7 @@ def prediction(args, device):
         output_tensor = model(input_tensor)
         
         pred, conf = int(torch.argmax(output_tensor).detach().cpu().numpy()), float((torch.max(output_tensor)).detach().cpu().numpy())
-        result.append((pred, conf, target, data[0] / data.image_path))
+        result.append((pred, conf, target, data[0] / data.image_path, data.label))
         
     ##################################### save result image & anno #####################################
     if args.pred_save:
@@ -384,47 +384,40 @@ def prediction(args, device):
             recall = recall_score(y_target, y_pred, average= "macro")
             cm = confusion_matrix(y_target, y_pred)
             cm_display = ConfusionMatrixDisplay(cm).plot()
-            plt.title('정밀도: {0:.4f}, 재현율: {1:.4f}'.format(precision, recall))
-            plt.savefig(args.pred_eval_name+'cm.png')
+            plt.title('Precision: {0:.4f}, Recall: {1:.4f}'.format(precision, recall))
+            plt.savefig('image/'+args.pred_eval_name+'cm.png')
             plt.close()
 
             print(cm)
             print('정밀도: {0:.4f}, 재현율: {1:.4f}'.format(precision, recall))
+            pos_val = result[np.where(np.array(result)[...,-1]=='positive')[0][0]][2]
 
             # collect data 
-            conf_TN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p==0] 
-            conf_TP = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p==1] 
-            conf_FN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p!=t and p==0] 
-            conf_FP = [x[1] for p, t, x in zip(y_pred, y_target,result) if p!=t and p==1] 
-            # conf_TN = [x[1] for x in result if (x[0]==x[2] and x[0]==0)]
-            # conf_TP = [x[1] for x in result if (x[0]==x[2] and x[0]==1)]
-            # conf_FN = [x[1] for x in result if (x[0]!=x[2] and x[0]==0)]
-            # conf_FP = [x[1] for x in result if (x[0]!=x[2] and x[0]==1)]
+            conf_TN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p!=pos_val] 
+            conf_TP = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p==pos_val] 
+            conf_FN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p!=t and p!=pos_val] 
+            conf_FP = [x[1] for p, t, x in zip(y_pred, y_target,result) if p!=t and p==pos_val] 
             
             # get index 
-            itn = [i for i in range(len(result)) if (y_pred[i]==y_target[i] and y_pred[i]==0)]
-            itp = [i for i in range(len(result)) if (y_pred[i]==y_target[i] and y_pred[i]==1)]
-            ifn = [i for i in range(len(result)) if (y_pred[i]!=y_target[i] and y_pred[i]==0)]
-            ifp = [i for i in range(len(result)) if (y_pred[i]!=y_target[i] and y_pred[i]==1)]
-            # itn = [i for i in range(len(result)) if (result[i][0]==result[i][2] and result[i][0]==0)]
-            # itp = [i for i in range(len(result)) if (result[i][0]==result[i][2] and result[i][0]==1)]
-            # ifn = [i for i in range(len(result)) if (result[i][0]!=result[i][2] and result[i][0]==0)]
-            # ifp = [i for i in range(len(result)) if (result[i][0]!=result[i][2] and result[i][0]==1)]
+            itn = [i for i in range(len(result)) if (y_pred[i]==y_target[i] and y_pred[i]!=pos_val)]
+            itp = [i for i in range(len(result)) if (y_pred[i]==y_target[i] and y_pred[i]==pos_val)]
+            ifn = [i for i in range(len(result)) if (y_pred[i]!=y_target[i] and y_pred[i]!=pos_val)]
+            ifp = [i for i in range(len(result)) if (y_pred[i]!=y_target[i] and y_pred[i]==pos_val)]
             
             # histogram T-F 
             plt.hist(((conf_TN+conf_TP),(conf_FN+conf_FP)), label=('True', 'False'),histtype='bar', bins=50)
             plt.xlabel('Confidence')
             plt.ylabel('Conunt')
-            plt.legend(loc='upper left')
-            plt.savefig(args.pred_eval_name+'hist_tf.png')
+            plt.legend(loc='best')
+            plt.savefig('image/'+args.pred_eval_name+'hist_tf.png')
             plt.close()
 
             # histogram TN TP FN FP
             plt.hist((conf_TN,conf_TP,conf_FN,conf_FP), label=('TN', 'TP','FN','FP'),histtype='bar', bins=30)
             plt.xlabel('Confidence')
             plt.ylabel('Conunt')
-            plt.legend(loc='upper left')
-            plt.savefig(args.pred_eval_name+'hist_4.png')
+            plt.legend(loc='best')
+            plt.savefig('image/'+args.pred_eval_name+'hist_4.png')
             plt.close()
             
         # scatter graph
@@ -436,17 +429,17 @@ def prediction(args, device):
             plt.scatter(conf_FN, ifn, alpha=0.4, color='tab:green', marker='x', label='FN', s=20)
         if len(conf_FP):
             plt.scatter(conf_FP, ifp, alpha=0.4, color='tab:red', marker='x', label='FT', s=20)
-        plt.legend(loc='upper right')
+        plt.legend(loc='best')
         plt.xlabel('Confidence')
         plt.ylabel('Image Index')
-        plt.savefig(args.pred_eval_name+'scater.png')
+        plt.savefig('image/'+args.pred_eval_name+'scater.png')
         plt.close()
 
         # histogram 
         plt.hist(((conf_TN+conf_TP+conf_FN+conf_FP)), histtype='bar', bins=50)
         plt.xlabel('Confidence')
         plt.ylabel('Conunt')
-        plt.savefig(args.pred_eval_name+'hist.png')
+        plt.savefig('image/'+args.pred_eval_name+'hist.png')
         plt.close()
 
     ##################################### save evalutations #####################################
