@@ -377,8 +377,10 @@ def prediction(args, device):
         else:
             y_pred = [i[0] for i in result]
             y_target = [i[2] for i in result]
+            pos_val = result[np.where(np.array(result)[...,-1]=='positive')[0][0]][2]
             if args.use_softlabel:
                 y_target = [0 if i==2 or i==0 else 1 for i in y_target]
+                pos_val = 1
 
             precision = precision_score(y_target, y_pred, average= "macro")
             recall = recall_score(y_target, y_pred, average= "macro")
@@ -390,7 +392,6 @@ def prediction(args, device):
 
             print(cm)
             print('정밀도: {0:.4f}, 재현율: {1:.4f}'.format(precision, recall))
-            pos_val = result[np.where(np.array(result)[...,-1]=='positive')[0][0]][2]
 
             # collect data 
             conf_TN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p!=pos_val] 
