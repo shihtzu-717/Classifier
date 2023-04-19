@@ -11,27 +11,28 @@ import os
 
 padding = ['FIX2']
 padding_size = [384]
-use_bbox = ['False']
+use_bbox = ['True', 'False']
 use_shift = ['True', 'False']
-target_label_ratio = [1, 0.98, 0.94]
-soft_label_ratio = [0.7, 0.8, 0.9, 1]
+target_label_ratio = [1]
+soft_label_ratio = [1]
 warmup = [0]
 
-base = """CUDA_VISIBLE_DEVICES=2 python main.py \
+base = """CUDA_VISIBLE_DEVICES=0 python main.py \
             --model convnext_base --drop_path 0.2 --input_size 224 \
-            --batch_size 256 --lr 5e-5 --update_freq 2 \
+            --batch_size 128 --lr 5e-5 --update_freq 2 \
             --epochs 30 --weight_decay 1e-8 \
             --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
             --finetune checkpoint/convnext_base_22k_224.pth \
-            --data_path /home/daree/nas/Classification_Model/ambclass/1st_data \
-            --eval_data_path /home/daree/nas/Classification_Model/ambclass/1st_data \
+            --data_path /home/daree/nas/ambclass/2nd_data \
+            --eval_data_path /home/daree/nas/ambclass/2nd_data \
             --model_ema true --model_ema_eval true \
             --data_set image_folder \
-            --nb_classes 2 \
-            --use_softlabel True \
+            --nb_classes 4 \
+            --use_softlabel=False \
             --use_cropimg=False \
             --auto_resume=False \
             --test_val_ratio 0.0 0.2 \
+            --split_file_write=False \
             --use_cropimg False \
             --save_ckpt True \
             --lossfn BCE \

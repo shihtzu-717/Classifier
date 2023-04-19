@@ -9,8 +9,4 @@ __pycache__/
 /csv
 /checkpoint
 /.vscode
-/image
-<<<<<<< HEAD
-=======
-*.pyc
->>>>>>> c7c042926fd123485f9de2ad10dacb8122286375
+/image*
