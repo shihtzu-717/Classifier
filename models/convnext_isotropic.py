@@ -58,10 +58,20 @@ class ConvNeXtIsotropic(nn.Module):
         x = self.blocks(x)
         return self.norm(x.mean([-2, -1])) # global average pooling, (N, C, H, W) -> (N, C)
 
-    def forward(self, x):
-        x = self.forward_features(x)
-        x = self.head(x)
-        return x
+    # def forward(self, x):
+    #     x = self.forward_features(x)
+    #     x = self.head(x)
+    #     return x
+    
+    def forward(self, x, onlyfc=True):
+        x_layernorm = self.forward_features(x)
+        x = self.head(x_layernorm)
+        if onlyfc:
+            return x
+        else:
+            return x, x_layernorm
+
+
 
 @register_model
 def convnext_isotropic_small(pretrained=False, **kwargs):

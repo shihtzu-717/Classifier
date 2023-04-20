@@ -268,6 +268,7 @@ def evaluate_temp(data_loader, model, device, criterion=torch.nn.CrossEntropyLos
 def prediction(args, device):
     from datasets import PotholeDataset, get_split_data
     from sklearn.metrics import precision_score , recall_score , confusion_matrix, ConfusionMatrixDisplay
+    import random
 
     imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
     mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
@@ -300,6 +301,7 @@ def prediction(args, device):
                                   label_list = args.label_list) 
         
     data_list = sets['test'] if len(sets['test']) > 0 else sets['val']
+    random.shuffle(data_list)
     tonorm = transforms.Normalize(mean, std)
     for data in tqdm(data_list, desc='Image Cropping... '):
         crop_img = preprocess_data.crop_image(
@@ -377,7 +379,7 @@ def prediction(args, device):
         else:
             y_pred = [i[0] for i in result]
             y_target = [i[2] for i in result]
-            pos_val = result[np.where(np.array(result)[...,-1]=='positive')[0][0]][2]
+            pos_val = 3
             if args.use_softlabel:
                 y_target = [0 if i==2 or i==0 else 1 for i in y_target]
                 pos_val = 1

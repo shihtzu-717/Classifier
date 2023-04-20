@@ -155,9 +155,9 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/home/daree/nas/Classification_Model/ambclass/1st_data', type=str,
+    parser.add_argument('--data_path', default='/home/daree/nas/ambclass/1st_data', type=str,
                         help='dataset path')
-    parser.add_argument('--eval_data_path', default="/home/daree/nas/Classification_Model/ambclass/1st_data", type=str,
+    parser.add_argument('--eval_data_path', default="/home/daree/nas/ambclass/1st_data", type=str,
                         help='dataset path for evaluation')
     parser.add_argument('--nb_classes', default=4, type=int,
                         help='number of the classification types')
@@ -179,7 +179,7 @@ def get_args_parser():
     parser.add_argument('--auto_resume', type=str2bool, default=False)
     parser.add_argument('--save_ckpt', type=str2bool, default=True)
     parser.add_argument('--save_ckpt_freq', default=1, type=int)
-    parser.add_argument('--save_ckpt_num', default=3, type=int)
+    parser.add_argument('--save_ckpt_num', default=1, type=int)
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
