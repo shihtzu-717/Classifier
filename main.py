@@ -155,9 +155,9 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/home/daree/nas/ambclass/1st_data', type=str,
+    parser.add_argument('--data_path', default='/home/daree/nas/Classification_Model/ambclass/1st_data', type=str,
                         help='dataset path')
-    parser.add_argument('--eval_data_path', default="/home/daree/nas/ambclass/1st_data", type=str,
+    parser.add_argument('--eval_data_path', default="/home/daree/nas/Classification_Model/ambclass/1st_data", type=str,
                         help='dataset path for evaluation')
     parser.add_argument('--nb_classes', default=4, type=int,
                         help='number of the classification types')

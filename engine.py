@@ -70,7 +70,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                 output = model(samples)
                 loss = criterion(output, targets)
         else: # full precision
-            output = model(samples)
+            output, outvect = model(samples, False)
             loss = criterion(output, targets)
   
         loss_value = loss.item()
@@ -381,6 +381,7 @@ def prediction(args, device):
             y_target = [i[2] for i in result]
             pos_val = 3
             if args.use_softlabel:
+                y_pred = [0 if i==2 or i==0 else 1 for i in y_pred]
                 y_target = [0 if i==2 or i==0 else 1 for i in y_target]
                 pos_val = 1
 

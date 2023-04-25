@@ -10,12 +10,14 @@ base = """CUDA_VISIBLE_DEVICES=1 python main.py \
             --layer_decay 0.8 \
             --test_val_ratio 1.0 0.0 \
             --nb_classes 4 \
+            --use_softlabel=True \
             --use_class 0 1 \
             --pred_eval True \
             --pred True"""
 
-models = (glob.glob('results/b/**/checkpoint-29.pth'))
-datas = ["/home/daree/nas/ambclass/2nd_data"]
+# models = (glob.glob('results/b/**/checkpoint-best.pth'))
+models = (glob.glob('results/4class_set2/**/checkpoint-best.pth'))
+datas = ["/home/daree/nas/Classification_Model/ambclass/3rd_data"]
 
 for data in datas:
     for ckpt in models:

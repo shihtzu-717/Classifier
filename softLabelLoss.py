@@ -9,7 +9,7 @@ class softLabelLoss(nn.Module):
         lossfn = args.lossfn
         self.nb_class = args.nb_classes
         self.use_softlabel = args.use_softlabel
-        self.ratio = args.soft_label_ratio
+        self.soft_ratio = args.soft_label_ratio
         self.label_ratio = args.label_ratio
         if mixup_fn is not None:
             # smoothing is handled with mixup label transform
@@ -26,25 +26,59 @@ class softLabelLoss(nn.Module):
             elif lossfn == 'MSE':
                 self.criterion = nn.MSELoss()
 
-    def partial_onehot(self, target, size=2):
-        onehot = torch.zeros(len(target), size).to(target.device)
-        for i, t in enumerate(target):
-            if t == 2: # neg
-                onehot[i][0] = self.label_ratio
-                onehot[i][1] = 1-self.label_ratio
-            elif t == 3: # pos
-                onehot[i][0] = 1-self.label_ratio
-                onehot[i][1] = self.label_ratio
-            elif t == 0: # amb_neg
-                onehot[i][0] = self.ratio
-                onehot[i][1] = 1-self.ratio
-            elif t == 1: # amb_pos
-                onehot[i][0] = 1-self.ratio
-                onehot[i][1] = self.ratio
+    # def partial_onehot(self, target, size=2):
+    #     onehot = torch.zeros(len(target), size).to(target.device)
+    #     for i, t in enumerate(target):
+    #         if t == 2: # neg
+    #             onehot[i][0] = self.label_ratio
+    #             onehot[i][1] = 1-self.label_ratio
+    #         elif t == 3: # pos
+    #             onehot[i][0] = 1-self.label_ratio
+    #             onehot[i][1] = self.label_ratio
+    #         elif t == 0: # amb_neg
+    #             onehot[i][0] = self.soft_ratio
+    #             onehot[i][1] = 1-self.soft_ratio
+    #         elif t == 1: # amb_pos
+    #             onehot[i][0] = 1-self.soft_ratio
+    #             onehot[i][1] = self.soft_ratio
+    #     return onehot
+    
+    def partial_onehot(self, target):
+        if self.use_softlabel:
+            onehot = torch.zeros(len(target), self.nb_class).to(target.device)
+            for i, t in enumerate(target):
+                if t == 0: # amb_neg
+                    onehot[i][0] = self.soft_ratio
+                    onehot[i][1] = 1-self.soft_ratio
+                elif t == 1: # amb_pos
+                    onehot[i][0] = 1-self.soft_ratio
+                    onehot[i][1] = self.soft_ratio
+                elif t == 2: # neg
+                    onehot[i][0] = self.label_ratio
+                    onehot[i][1] = 1-self.label_ratio
+                elif t == 3: # pos
+                    onehot[i][0] = 1-self.label_ratio
+                    onehot[i][1] = self.label_ratio
+                
+        else:
+            onehot = torch.zeros(len(target), 4).to(target.device)
+            for i, t in enumerate(target):
+                if t == 0: # amb_neg
+                    onehot[i][0] = self.label_ratio
+                    onehot[i][2] = self.soft_ratio
+                elif t == 1: # amb_pos
+                    onehot[i][1] = self.label_ratio
+                    onehot[i][3] = self.soft_ratio
+                elif t == 2: # neg
+                    onehot[i][2] = self.label_ratio
+                    onehot[i][0] = self.soft_ratio
+                elif t == 3: # pos
+                    onehot[i][3] = self.label_ratio
+                    onehot[i][1] = self.soft_ratio
         return onehot
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        if self.use_softlabel:
+        if self.nb_class==2 or self.nb_class==4:
             target = self.partial_onehot(target)
         else:
             target = torch.nn.functional.one_hot(target, num_classes=self.nb_class).float()
