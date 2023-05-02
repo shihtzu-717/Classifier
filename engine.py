@@ -70,7 +70,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                 output = model(samples)
                 loss = criterion(output, targets)
         else: # full precision
-            output, outvect = model(samples, False)
+            output, outvect = model(samples, onlyfc=False)
             loss = criterion(output, targets)
   
         loss_value = loss.item()

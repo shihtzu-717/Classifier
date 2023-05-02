@@ -120,7 +120,7 @@ def get_split_data(data_root, test_r=0.1, val_r=0.1, file_write=False, label_lis
 
 
 class PotholeDataset(Dataset):
-    def __init__(self, data_set, data_path, args, is_train=True, transform=None, target_transform=None):
+    def __init__(self, data_set, args, data_path=None, is_train=True, transform=None, target_transform=None):
         super().__init__()
         self.data_set = data_set
         self.is_train = is_train
@@ -151,7 +151,7 @@ class PotholeDataset(Dataset):
             if v.class_id not in self.use_class:
                 continue
             # image_path = self.data_path / v.data_set / v.label / v.image_path
-            image_path = self.data_path / v.image_path
+            image_path = v.data_set / v.image_path
             crop_img = preprocess_data.crop_image(
                 image_path = image_path, 
                 bbox = v.bbox, 

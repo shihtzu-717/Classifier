@@ -155,9 +155,11 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/home/daree/nas/Classification_Model/ambclass/1st_data', type=str,
+    parser.add_argument('--data_path', default=['/home/daree/nas/Classification_Model/ambclass/1st_data',
+                                                '/home/daree/nas/Classification_Model/ambclass/2nd_data',
+                                                '/home/daree/nas/Classification_Model/ambclass/3rd_data'], nargs='+', type=str,
                         help='dataset path')
-    parser.add_argument('--eval_data_path', default="/home/daree/nas/Classification_Model/ambclass/1st_data", type=str,
+    parser.add_argument('--eval_data_path', default="/home/daree/nas/Classification_Model/ambclass/3rd_data", type=str,
                         help='dataset path for evaluation')
     parser.add_argument('--nb_classes', default=4, type=int,
                         help='number of the classification types')
@@ -287,18 +289,22 @@ def main(args):
             dataset_train = dataset_val
 
         else:
-            sets = get_split_data(data_root=Path(args.data_path), 
-                                  test_r=args.test_val_ratio[0], 
-                                  val_r=args.test_val_ratio[1], 
-                                  file_write=args.split_file_write,
-                                  label_list = args.label_list) 
+            tr=[]
+            vr=[]
+            for path in args.data_path:
+                settmp = get_split_data(data_root=Path(path), 
+                                    test_r=args.test_val_ratio[0], 
+                                    val_r=args.test_val_ratio[1], 
+                                    file_write=args.split_file_write,
+                                    label_list = args.label_list)
+                tr = tr + settmp['train']
+                vr = vr + settmp['val']
+            sets = dict(train=tr, val=vr)
             dataset_train = PotholeDataset(
                 data_set=sets['train'], 
-                data_path=Path(args.data_path), 
                 args=args)
             dataset_val = PotholeDataset(
                 data_set=sets['val'], 
-                data_path=Path(args.data_path), 
                 args=args, 
                 is_train=False) 
             # args.nb_classes=len(dataset_train.classes)
