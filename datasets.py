@@ -119,6 +119,7 @@ def get_split_data(data_root, test_r=0.1, val_r=0.1, file_write=False, label_lis
         file_write=file_write)
 
 
+# Dataset Class 
 class PotholeDataset(Dataset):
     def __init__(self, data_set, args, data_path=None, is_train=True, transform=None, target_transform=None):
         super().__init__()
@@ -142,6 +143,7 @@ class PotholeDataset(Dataset):
     def __len__(self):
         return self.length
 
+    # Crop image data
     def get_crop(self):
         img_list=[]
         img_path=[]
@@ -173,21 +175,10 @@ class PotholeDataset(Dataset):
             img_path.append(str(image_path))
             img_bbox.append(torch.tensor(v.bbox))
 
-        # ################# set samples ####################
-        # import random
-        # import shutil
-        # samples = random.sample(set(img_path), 200)
-        # for sample in samples:
-        #     txtsample = sample[:-3] + 'txt'
-        #     print(shutil.copy(sample, '/home/daree/code/samples/ss/positive'))
-        #     print(shutil.copy(txtsample, '/home/daree/code/samples/ss/positive'))
-        # print('done~')
-        # ################# set samples ####################
-
         self.classes = list(np.sort(np.unique(label_list)))
         self.class_to_idx = {string : i for i, string in enumerate(self.classes)}
         
-        # data upsample to 1:1:1:1
+        # Data upsample to 1:1:1:1 --> label 및 train, val, testset을 일정 비율로 upsample
         clcnt = [label_list.count(i) for i in self.classes]
         for j, cl in enumerate(self.classes):
             idx = [i for i, k in enumerate(label_list) if k==cl]

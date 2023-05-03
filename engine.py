@@ -39,7 +39,6 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     metric_logger.add_meter('min_lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 10
-
     optimizer.zero_grad()
 
     # for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
@@ -210,61 +209,6 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
 
 
 @torch.no_grad()
-def evaluate_temp(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), use_amp=False):
-    metric_logger = utils.MetricLogger(delimiter="  ")
-    header = 'Test:'
-
-    # switch to evaluation mode
-    model.eval()
-    for batch in metric_logger.log_every(data_loader, 10, header):
-        images = batch[0].to(device, non_blocking=True)
-        origin_target = batch[-1].to(device, non_blocking=True)
-        target = torch.tensor([0 if i==2 or i==0 else 1 for i in origin_target]).to(device)
-
-        # compute output
-        if use_amp:
-            with torch.cuda.amp.autocast():
-                output = model(images)
-                loss = criterion(output, target)
-        else:
-            output = model(images)
-            loss = criterion(output, target)
-        
-        metric_logger.meters['images'].update(images.item(), n=batch_size)
-        metric_logger.meters['targets'].update(target.item(), n=batch_size)
-
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        
-        batch_size = images.shape[0]
-        metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
-
-        for class_name, class_id in data_loader.dataset.class_to_idx.items():
-            class_id = 0 if class_id==2 or class_id==0 else 1 
-            class_name = 'negative' if class_name == 'amb_neg' else class_name
-            class_name = 'positive' if class_name == 'amb_pos' else class_name
-
-            mask = (target == class_id)
-            target_class = torch.masked_select(target, mask)
-            data_size = target_class.shape[0]
-            if data_size > 0:
-                mask = mask.unsqueeze(1).expand_as(output)
-                output_class = torch.masked_select(output, mask)
-                # output_class = output_class.view(-1, len(data_loader.dataset.class_to_idx))
-                output_class = output_class.view(-1, 2)
-                acc1_class, acc5_class = accuracy(output_class, target_class, topk=(1, 5))
-                metric_logger.meters[f'acc1_{class_name}'].update(acc1_class.item(), n=data_size)
-                metric_logger.meters[f'acc5_{class_name}'].update(acc5_class.item(), n=data_size)
-
-    # gather the stats from all processes
-    metric_logger.synchronize_between_processes()
-    print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
-          .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
-    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-
-
-@torch.no_grad()
 def prediction(args, device):
     from datasets import PotholeDataset, get_split_data
     from sklearn.metrics import precision_score , recall_score , confusion_matrix, ConfusionMatrixDisplay
@@ -275,6 +219,7 @@ def prediction(args, device):
     std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
     totorch = transforms.ToTensor()
 
+    # 모델 생성 train한 모델과 같은 모델을 생성해야 함.
     model = create_model(
         args.model, 
         pretrained=False, 
@@ -285,15 +230,15 @@ def prediction(args, device):
     )
     model.to(device)
 
+    # Trained Model
     utils.auto_load_model(
         args=args, model=model, model_without_ddp=model,
         optimizer=None, loss_scaler=None, model_ema=None)
     model.eval()
-    
+
+    # Data laod     
     data_list = []
     result = []
-    # data_root=Path(args.eval_data_path)
-    
     sets = get_split_data(data_root=Path(args.eval_data_path), 
                                   test_r=args.test_val_ratio[0], 
                                   val_r=args.test_val_ratio[1], 
@@ -301,8 +246,9 @@ def prediction(args, device):
                                   label_list = args.label_list) 
         
     data_list = sets['test'] if len(sets['test']) > 0 else sets['val']
-    random.shuffle(data_list)
-    tonorm = transforms.Normalize(mean, std)
+
+    random.shuffle(data_list)  # Data list shuffle
+    tonorm = transforms.Normalize(mean, std)  # Transform 생성
     for data in tqdm(data_list, desc='Image Cropping... '):
         crop_img = preprocess_data.crop_image(
             image_path = data[0] / data.image_path, 
@@ -313,9 +259,12 @@ def prediction(args, device):
             use_bbox = args.use_bbox, 
             imsave = args.imsave
         )
+
+        # File 이름에 label이 있는지 확인
         spltnm = str(data[1]).split('_')
         target = int(spltnm[0][1]) if spltnm[0][0] == 't' else -1
 
+        # label이 따로 있는 경우 아래 4가지 label로 지정
         if target == -1:
             if data[1] == 'amb_neg':
                 target = 0 # amb_neg
@@ -334,22 +283,35 @@ def prediction(args, device):
         input_tensor = totorch(pil_image).to(device)
         input_tensor = input_tensor.unsqueeze(dim=0)
         input_tensor = tonorm(input_tensor)
-        output_tensor = model(input_tensor)
         
+        # model output 
+        output_tensor = model(input_tensor) 
         pred, conf = int(torch.argmax(output_tensor).detach().cpu().numpy()), float((torch.max(output_tensor)).detach().cpu().numpy())
         result.append((pred, conf, target, data[0] / data.image_path, data.label))
         
     ##################################### save result image & anno #####################################
     if args.pred_save:
         import os
+        os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'images', exist_ok=True)
+        os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'annotations', exist_ok=True)
+        os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'images', exist_ok=True)
+        os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'annotations', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'negative' / 'images', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'negative' / 'annotations', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'positive' / 'images', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'positive' / 'annotations', exist_ok=True)
 
-        pos = [x[-1] for x in result if x[0]==1]
-        neg = [x[-1] for x in result if x[0]==0]
+        amb_neg = [x[-1] for x in result if x[0]==0]
+        amb_pos = [x[-1] for x in result if x[0]==1]
+        neg = [x[-1] for x in result if x[0]==2]
+        pos = [x[-1] for x in result if x[0]==3]
         
+        for n in tqdm(amb_neg, desc='Negative images copying... '):
+            shutil.copy(n, Path(args.pred_save_path) /'amb_neg' / 'images')
+            shutil.copy(str(n)[:-3]+'txt', Path(args.pred_save_path) / 'amb_neg' / 'annotations')
+        for p in tqdm(amb_pos, desc='Positive images copying... '):
+            shutil.copy(p, Path(args.pred_save_path) / 'amb_pos' / 'images')
+            shutil.copy(str(p)[:-3]+'txt', Path(args.pred_save_path) / 'amb_pos' / 'annotations')
         for n in tqdm(neg, desc='Negative images copying... '):
             shutil.copy(n, Path(args.pred_save_path) /'negative' / 'images')
             shutil.copy(str(n)[:-3]+'txt', Path(args.pred_save_path) / 'negative' / 'annotations')
@@ -364,7 +326,9 @@ def prediction(args, device):
             conf_TN = [x[1] for x in result if (x[0]==0)]
             conf_TP = [x[1] for x in result if (x[0]==1)]
             conf_FN = []
-            conf_FP = []    
+            conf_FP = []
+
+            # index set    
             itn = [i for i in range(len(result)) if (result[i][0]==0)]
             itp = [i for i in range(len(result)) if (result[i][0]==1)]
 
@@ -380,11 +344,14 @@ def prediction(args, device):
             y_pred = [i[0] for i in result]
             y_target = [i[2] for i in result]
             pos_val = 3
+
+            # 4class to 2class 변경
             if args.use_softlabel:
                 y_pred = [0 if i==2 or i==0 else 1 for i in y_pred]
                 y_target = [0 if i==2 or i==0 else 1 for i in y_target]
                 pos_val = 1
 
+            # precision recall 계산
             precision = precision_score(y_target, y_pred, average= "macro")
             recall = recall_score(y_target, y_pred, average= "macro")
             cm = confusion_matrix(y_target, y_pred)
@@ -392,7 +359,6 @@ def prediction(args, device):
             plt.title('Precision: {0:.4f}, Recall: {1:.4f}'.format(precision, recall))
             plt.savefig('image/'+args.pred_eval_name+'cm.png')
             plt.close()
-
             print(cm)
             print('정밀도: {0:.4f}, 재현율: {1:.4f}'.format(precision, recall))
 

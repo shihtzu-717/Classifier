@@ -262,7 +262,8 @@ def main(args):
     np.random.seed(seed)
     cudnn.benchmark = True
 
-    if args.use_cropimg:
+    ## Data Set Load 
+    if args.use_cropimg: # crop된 이미지 사용
         dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
         if args.disable_eval:
             args.dist_eval = False
@@ -271,10 +272,12 @@ def main(args):
             dataset_val, _ = build_dataset(is_train=False, args=args)
 
     else:
+        # Prediction 실행 시
         if args.pred:
             prediction(args, device)
             return
-         
+        
+        # Evlaluation 실행 시
         elif args.eval:
             sets = get_split_data(data_root=Path(args.eval_data_path), 
                                   test_r=args.test_val_ratio[0], 
@@ -288,6 +291,7 @@ def main(args):
                 is_train=False) 
             dataset_train = dataset_val
 
+        # Train 실행 시
         else:
             tr=[]
             vr=[]
@@ -307,8 +311,8 @@ def main(args):
                 data_set=sets['val'], 
                 args=args, 
                 is_train=False) 
-            # args.nb_classes=len(dataset_train.classes)
     
+        # Data 수량 확인
         s=num_cl_tr=num_cl_vl=''
         for cl in dataset_train.classes:
             s = s + '   ' + cl
@@ -325,6 +329,7 @@ def main(args):
         dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, seed=args.seed,
     )
     print("Sampler_train = %s" % str(sampler_train))
+    
     if args.dist_eval:
         if len(dataset_val) % num_tasks != 0:
             print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
@@ -335,14 +340,15 @@ def main(args):
     else:
         sampler_val = torch.utils.data.RandomSampler(dataset_val, shuffle=True)
 
+    # Set log folder name 
     if global_rank == 0 and args.log_dir is not None:
         KST = datetime.timezone(datetime.timedelta(hours=9))
         d = datetime.datetime.now(tz=KST)
         if args.log_name is not None:
             args.log_dir = args.log_dir + '/' + args.log_name
         else:
-            args.log_dir = args.log_dir + f'/time_{d.strftime("%y%m%d")}_{d.strftime("%H%M%S")}'
-        
+            # 이름이 지정되지 않으면 날짜-시간으로 설정
+            args.log_dir = args.log_dir + f'/time_{d.strftime("%y%m%d")}_{d.strftime("%H%M%S")}' 
 
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = utils.TensorboardLogger(log_dir=args.log_dir)
@@ -382,6 +388,7 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
+    # 모델 생성 
     model = create_model(
         args.model, 
         pretrained=False, 
@@ -391,6 +398,7 @@ def main(args):
         head_init_scale=args.head_init_scale,
         )
 
+    # Pretrain model load
     if args.finetune:
         if args.finetune.startswith('https'):
             checkpoint = torch.hub.load_state_dict_from_url(
@@ -491,7 +499,6 @@ def main(args):
     if args.eval:
         print(f"Eval only mode")
         test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp, use_softlabel=args.use_softlabel)
-        # test_stats = evaluate(data_loader_val, model, device, use_amp=args.use_amp)
         print(f"Accuracy of the network on {len(dataset_val)} test images: {test_stats['acc1']:.5f}%")
         with open('results/eval.txt', 'a', encoding='utf-8') as af:
             af.write(f'{args.resume}\t{args.eval_data_path}')

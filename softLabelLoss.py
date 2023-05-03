@@ -26,22 +26,6 @@ class softLabelLoss(nn.Module):
             elif lossfn == 'MSE':
                 self.criterion = nn.MSELoss()
 
-    # def partial_onehot(self, target, size=2):
-    #     onehot = torch.zeros(len(target), size).to(target.device)
-    #     for i, t in enumerate(target):
-    #         if t == 2: # neg
-    #             onehot[i][0] = self.label_ratio
-    #             onehot[i][1] = 1-self.label_ratio
-    #         elif t == 3: # pos
-    #             onehot[i][0] = 1-self.label_ratio
-    #             onehot[i][1] = self.label_ratio
-    #         elif t == 0: # amb_neg
-    #             onehot[i][0] = self.soft_ratio
-    #             onehot[i][1] = 1-self.soft_ratio
-    #         elif t == 1: # amb_pos
-    #             onehot[i][0] = 1-self.soft_ratio
-    #             onehot[i][1] = self.soft_ratio
-    #     return onehot
     
     def partial_onehot(self, target):
         if self.use_softlabel:
@@ -76,6 +60,7 @@ class softLabelLoss(nn.Module):
                     onehot[i][3] = self.label_ratio
                     onehot[i][1] = self.soft_ratio
         return onehot
+
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         if self.nb_class==2 or self.nb_class==4:
