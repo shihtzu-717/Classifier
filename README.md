@@ -117,7 +117,8 @@ If you find this repository helpful, please consider citing:
 ---
 ---
 ## Execution
-1. main.py를 통해 전체 code 실행
+1. [main.py](main.py) 
+    - 전체 code 실행
     - get_args_parser( )의 parameter 수정
 
     ```
@@ -130,14 +131,14 @@ If you find this repository helpful, please consider citing:
     # Image Crop & Padding --> data set image load와 관련된 항목
     ```
 
-2. engine.py
+2. [engine.py](engine.py)
     - train, validation, prediction(check result)과 관련된 코드
     - prediction(evaluation) 모듈(새로 추가)
       - prediction 모듈은 train 결과를 불러와 evaluation
       - args.pred가 True로 설정되면 prediction진입 
       - 결과 image구분과 graph 결과 생성
 
-3. preprocess_data.py & datasets.py
+3. [preprocess_data.py](preprocess_data.py) & [datasets.py](datasets.py)
     - dataset 생성과 image crop 및 전처리 관련 코드
     - 두 파일내에 있는 function 및 class를 활용
     - split_data
@@ -147,18 +148,19 @@ If you find this repository helpful, please consider citing:
     - make_list
       - dataloader를 통해서 불러올 raw데이터 list생성
 
-4. softLabelLoss.py
+4. [softLabelLoss.py](softLabelLoss.py)
     - 다양한 loss를 적용하기 위한 code
     - args.np_class 가 2 혹은 4일 경우 target을 수정
     - args.use_sortlabel 이 True일 경우 4class -> 2class로 변경
 
-5. load_board.py
+5. [load_board.py](load_board.py)
     - log에 저장되어 있는 tensorboard 저장파일 파싱
     - csv로 결과 저장
     - path에 log파일이 저장되어 있는 폴더 이름 수정 후 실행
     - 추가로 필요한 부분이 있는 경우 col, val 부분을 수정
+    - csv 폴더에 csv파일 생성
 
-6. run.py
+6. [run.py](run_0.py)
     - 루틴한 실험을 진행하기 위한 코드
     - base : 변동이 없는 parameter 설정
     - 변동이 있는 parameter는 list형태로 지정하고 for문으로 실행
