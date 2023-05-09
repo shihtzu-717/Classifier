@@ -8,15 +8,15 @@ base = """CUDA_VISIBLE_DEVICES=1 python main.py \
             --auto_resume=False \
             --drop_path 0.2 \
             --layer_decay 0.8 \
-            --test_val_ratio 1.0 0.0 \
-            --nb_classes 4 \
+            --test_val_ratio 0.0 0.2 \
+            --nb_classes 2 \
             --use_softlabel=True \
             --use_class 0 1 \
             --pred_eval True \
             --pred True"""
 
-# models = (glob.glob('results/b/**/checkpoint-best.pth'))
-models = (glob.glob('results/4class_set2/**/checkpoint-best.pth'))
+models = (glob.glob('results/b/**/checkpoint-299.pth'))
+# models = (glob.glob('results/4class_set2_/**/checkpoint-29.pth'))
 datas = ["/home/daree/nas/Classification_Model/ambclass/3rd_data"]
 
 for data in datas:

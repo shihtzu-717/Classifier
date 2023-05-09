@@ -59,7 +59,7 @@ def get_file_path(dpath, tag):
 
 
 if __name__ == '__main__':
-    path = "./log_4class_set2test/"
+    path = "./log/"
     to_csv(path)
  
 
