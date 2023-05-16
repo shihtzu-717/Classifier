@@ -301,23 +301,27 @@ def prediction(args, device):
         os.makedirs(Path(args.pred_save_path) /'positive' / 'images', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'positive' / 'annotations', exist_ok=True)
 
-        amb_neg = [x[-1] for x in result if x[0]==0]
-        amb_pos = [x[-1] for x in result if x[0]==1]
-        neg = [x[-1] for x in result if x[0]==2]
-        pos = [x[-1] for x in result if x[0]==3]
-        
-        for n in tqdm(amb_neg, desc='Negative images copying... '):
+        amb_neg = [x[-2] for x in result if x[0]==0]
+        amb_pos = [x[-2] for x in result if x[0]==1]
+        neg = [x[-2] for x in result if x[0]==2]
+        pos = [x[-2] for x in result if x[0]==3]
+
+        for n in tqdm(amb_neg, desc='Ambiguous Negative images copying... '):
+            annot_path = (str(n)[:-3]+'txt').replace('images', 'annotations')
             shutil.copy(n, Path(args.pred_save_path) /'amb_neg' / 'images')
-            shutil.copy(str(n)[:-3]+'txt', Path(args.pred_save_path) / 'amb_neg' / 'annotations')
-        for p in tqdm(amb_pos, desc='Positive images copying... '):
+            shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
+        for p in tqdm(amb_pos, desc='Ambiguous Positive images copying... '):
+            annot_path = (str(n)[:-3]+'txt').replace('images', 'annotations')
             shutil.copy(p, Path(args.pred_save_path) / 'amb_pos' / 'images')
-            shutil.copy(str(p)[:-3]+'txt', Path(args.pred_save_path) / 'amb_pos' / 'annotations')
+            shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
         for n in tqdm(neg, desc='Negative images copying... '):
+            annot_path = (str(n)[:-3]+'txt').replace('images', 'annotations')
             shutil.copy(n, Path(args.pred_save_path) /'negative' / 'images')
-            shutil.copy(str(n)[:-3]+'txt', Path(args.pred_save_path) / 'negative' / 'annotations')
+            shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
         for p in tqdm(pos, desc='Positive images copying... '):
+            annot_path = (str(n)[:-3]+'txt').replace('images', 'annotations')
             shutil.copy(p, Path(args.pred_save_path) / 'positive' / 'images')
-            shutil.copy(str(p)[:-3]+'txt', Path(args.pred_save_path) / 'positive' / 'annotations')
+            shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
     ##################################### save result image & anno #####################################
 
     ##################################### save evalutations #####################################
@@ -360,7 +364,7 @@ def prediction(args, device):
             plt.savefig('image/'+args.pred_eval_name+'cm.png')
             plt.close()
             print(cm)
-            print('정밀도: {0:.4f}, 재현율: {1:.4f}'.format(precision, recall))
+            print('정밀도(Precision): {0:.4f}, 재현율(Recall): {1:.4f}'.format(precision, recall))
 
             # collect data 
             conf_TN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p!=pos_val] 
@@ -413,3 +417,5 @@ def prediction(args, device):
         plt.close()
 
     ##################################### save evalutations #####################################
+
+    

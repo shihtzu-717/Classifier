@@ -155,11 +155,11 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default=['/home/daree/nas/Classification_Model/ambclass/1st_data',
-                                                '/home/daree/nas/Classification_Model/ambclass/2nd_data',
-                                                '/home/daree/nas/Classification_Model/ambclass/3rd_data'], nargs='+', type=str,
+    parser.add_argument('--data_path', default=['/home/daree/nasdata/ambclass/1st_data',
+                                                '/home/daree/nasdata/ambclass/2nd_data',
+                                                '/home/daree/nasdata/ambclass/3rd_data'], nargs='+', type=str,
                         help='dataset path')
-    parser.add_argument('--eval_data_path', default="/home/daree/nas/Classification_Model/ambclass/3rd_data", type=str,
+    parser.add_argument('--eval_data_path', default="/home/daree/nasdata/ambclass/1st_data", type=str,
                         help='dataset path for evaluation')
     parser.add_argument('--nb_classes', default=4, type=int,
                         help='number of the classification types')
@@ -247,7 +247,6 @@ def get_args_parser():
     parser.add_argument('--soft_label_ratio', type=float, default=0.7, help='name for saving graph')
     parser.add_argument('--label_ratio', type=float, default=0.95, help='name for saving graph')
 
-
     return parser
 
 def main(args):
@@ -277,6 +276,10 @@ def main(args):
             prediction(args, device)
             return
         
+        elif args.inference:
+            inference(args, device)
+            return 
+
         # Evlaluation 실행 시
         elif args.eval:
             sets = get_split_data(data_root=Path(args.eval_data_path), 
