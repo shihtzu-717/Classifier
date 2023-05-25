@@ -21,11 +21,11 @@ nb_classes = [2, 4]
 base = """CUDA_VISIBLE_DEVICES=0 python main.py \
             --model convnext_base --drop_path 0.2 --input_size 224 \
             --batch_size 128 --lr 5e-5 --update_freq 2 \
-            --epochs 300 --weight_decay 1e-8 \
+            --epochs 30 --weight_decay 1e-8 \
             --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
             --finetune checkpoint/convnext_base_22k_224.pth \
-            --data_path '/home/daree/nasdata/ambclass/1st_data' '/home/daree/nasdata/ambclass/2nd_data' '/home/daree/nasdata/ambclass/3rd_data' \
-            --eval_data_path /home/daree/nasdata/ambclass/2nd_data \
+            --data_path '/home/daree/nasdata/ambclass_update/1st_data' '/home/daree/nasdata/ambclass_update/2nd_data' '/home/daree/nasdata/ambclass_update/3rd_data' \
+            --eval_data_path /home/daree/nasdata/4th_data \
             --model_ema true --model_ema_eval true \
             --data_set image_folder \
             --warmup_epochs 20 \
@@ -36,7 +36,7 @@ base = """CUDA_VISIBLE_DEVICES=0 python main.py \
             --use_cropimg False \
             --save_ckpt True \
             --lossfn BCE \
-            --use_class 0 1"""
+            --use_class 0"""
 
 for pad in padding:
     for pad_size in padding_size:
@@ -46,7 +46,7 @@ for pad in padding:
                     for soft_ratio in soft_label_ratio:
                         for ncls in nb_classes:
                             use_softlabel = True if ncls == 2 else False
-                            name = f'pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}'
+                            name = f'update_pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}'
                             if not os.path.isdir(os.getcwd() + '/log/' + name):
                                 os.system(f"""{base} \
                                         --padding {pad}\
@@ -59,4 +59,3 @@ for pad in padding:
                                         --nb_classes {ncls} \
                                         --log_name {name} \
                                         --use_softlabel={use_softlabel}""")
-

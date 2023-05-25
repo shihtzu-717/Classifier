@@ -26,6 +26,7 @@ from timm.models import create_model
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
 from pathlib import Path
 
+from torch import nn
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -287,9 +288,14 @@ def prediction(args, device):
         # model output 
         output_tensor = model(input_tensor) 
         pred, conf = int(torch.argmax(output_tensor).detach().cpu().numpy()), float((torch.max(output_tensor)).detach().cpu().numpy())
-        result.append((pred, conf, target, data[0] / data.image_path, data.label))
+        softmax = nn.Softmax()
+        probs = softmax(output_tensor)
+        print(probs)
+        probs_max = ((torch.max(probs)).detach().cpu().numpy())*100
+        result.append((pred, probs_max, target, data[0] / data.image_path, data.label))
         
     ##################################### save result image & anno #####################################
+
     if args.pred_save:
         import os
         os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'images', exist_ok=True)
@@ -300,28 +306,69 @@ def prediction(args, device):
         os.makedirs(Path(args.pred_save_path) /'negative' / 'annotations', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'positive' / 'images', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'positive' / 'annotations', exist_ok=True)
+        if args.pred_save_with_conf:
+            os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'inference', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'inference', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'negative' / 'inference', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'positive' / 'inference', exist_ok=True)
 
-        amb_neg = [x[-2] for x in result if x[0]==0]
-        amb_pos = [x[-2] for x in result if x[0]==1]
-        neg = [x[-2] for x in result if x[0]==2]
-        pos = [x[-2] for x in result if x[0]==3]
+        amb_neg = [(x[-2], 'amb_neg', x[1]) for x in result if x[0]==0]
+        amb_pos = [(x[-2], 'amb_pos', x[1]) for x in result if x[0]==1]
+        neg = [(x[-2], 'negative', x[1]) for x in result if x[0]==2]
+        pos = [(x[-2], 'positive', x[1]) for x in result if x[0]==3]
 
-        for n in tqdm(amb_neg, desc='Ambiguous Negative images copying... '):
-            annot_path = (str(n)[:-3]+'txt').replace('images', 'annotations')
-            shutil.copy(n, Path(args.pred_save_path) /'amb_neg' / 'images')
+        for an in tqdm(amb_neg, desc='Ambiguous Negative images copying... '):
+            img_path = str(an[0])
+            annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
+            shutil.copy(an[0], Path(args.pred_save_path) /'amb_neg' / 'images')
             shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
-        for p in tqdm(amb_pos, desc='Ambiguous Positive images copying... '):
-            annot_path = (str(n)[:-3]+'txt').replace('images', 'annotations')
-            shutil.copy(p, Path(args.pred_save_path) / 'amb_pos' / 'images')
+            if args.pred_save_with_conf:
+                img_plt = plt.imread(img_path)
+                plt.imshow(img_plt)
+                plt.axis('off')
+                plt.title(f"{an[1]},  {an[2]:.2f}%")
+                fn = os.path.basename(an[0])
+                plt.savefig(Path(args.pred_save_path) / 'amb_neg' / 'inference' / fn, dpi=200)
+
+
+        for ap in tqdm(amb_pos, desc='Ambiguous Positive images copying... '):
+            img_path = str(ap[0])
+            annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
+            shutil.copy(ap[0], Path(args.pred_save_path) / 'amb_pos' / 'images')
             shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
+            if args.pred_save_with_conf:
+                img_plt = plt.imread(img_path)
+                plt.imshow(img_plt)
+                plt.axis('off')
+                plt.title(f"{ap[1]}, {an[2]:.2f}%")
+                fn = os.path.basename(ap[0])
+                plt.savefig(Path(args.pred_save_path) / 'amb_pos' / 'inference' / fn, dpi=200)
+
         for n in tqdm(neg, desc='Negative images copying... '):
-            annot_path = (str(n)[:-3]+'txt').replace('images', 'annotations')
-            shutil.copy(n, Path(args.pred_save_path) /'negative' / 'images')
+            img_path = str(n[0])
+            annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
+            shutil.copy(n[0], Path(args.pred_save_path) /'negative' / 'images')
             shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
+            if args.pred_save_with_conf:
+                img_plt = plt.imread(img_path)
+                plt.imshow(img_plt)
+                plt.axis('off')
+                plt.title(f"{n[1]}, {an[2]:.2f}%")
+                fn = os.path.basename(n[0])
+                plt.savefig(Path(args.pred_save_path) / 'negative' / 'inference' / fn, dpi=200)
+
         for p in tqdm(pos, desc='Positive images copying... '):
-            annot_path = (str(n)[:-3]+'txt').replace('images', 'annotations')
-            shutil.copy(p, Path(args.pred_save_path) / 'positive' / 'images')
+            img_path = str(p[0])
+            annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
+            shutil.copy(p[0], Path(args.pred_save_path) / 'positive' / 'images')
             shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
+            if args.pred_save_with_conf:
+                img_plt = plt.imread(img_path)
+                plt.imshow(img_plt)
+                plt.axis('off')
+                plt.title(f"{p[1]}, {an[2]:.2f}%")
+                fn = os.path.basename(p[0])
+                plt.savefig(Path(args.pred_save_path) / 'positive' / 'inference' / fn, dpi=200)
     ##################################### save result image & anno #####################################
 
     ##################################### save evalutations #####################################
@@ -418,4 +465,3 @@ def prediction(args, device):
 
     ##################################### save evalutations #####################################
 
-    

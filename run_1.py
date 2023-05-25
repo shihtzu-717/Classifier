@@ -24,8 +24,8 @@ base = """CUDA_VISIBLE_DEVICES=1 python main.py \
             --epochs 300 --weight_decay 1e-8 \
             --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
             --finetune checkpoint/convnext_base_22k_224.pth \
-            --data_path '/home/daree/nasdata/ambclass/1st_data' '/home/daree/nasdata/ambclass/2nd_data' '/home/daree/nasdata/ambclass/3rd_data' \
-            --eval_data_path /home/daree/nasdata/ambclass/2nd_data \
+            --data_path '/home/daree/nasdata/ambclass_update/1st_data' '/home/daree/nasdata/ambclass_update/2nd_data' '/home/daree/nasdata/ambclass_update/3rd_data' \
+            --eval_data_path /home/daree/nasdata/ambclass_update/2nd_data \
             --model_ema true --model_ema_eval true \
             --data_set image_folder \
             --warmup_epochs 20 \
@@ -36,7 +36,7 @@ base = """CUDA_VISIBLE_DEVICES=1 python main.py \
             --use_cropimg False \
             --save_ckpt True \
             --lossfn BCE \
-            --use_class 0 1"""
+            --use_class 0"""
 
 for pad in padding:
     for pad_size in padding_size:

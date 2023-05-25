@@ -240,13 +240,16 @@ def get_args_parser():
     # predictions and evaluations 
     parser.add_argument('--pred', type=str2bool, default=False, help='Perform prediction only')
     parser.add_argument('--pred_save', type=str2bool, default=False, help='Save prediction result')
-    parser.add_argument('--pred_save_path', type=str, default='/home/daree/nas/set1', help='set root path for save result images')
+    # parser.add_argument('--pred_save_path', type=str, default='/home/daree/nas/set1', help='set root path for save result images')
+    parser.add_argument('--pred_save_path', type=str, help='set root path for save result images')
     parser.add_argument('--pred_eval', type=str2bool, default=True, help='Save prediction evaluation')
     parser.add_argument('--pred_eval_name', type=str, default='', help='name for saving graph')
 
     parser.add_argument('--soft_label_ratio', type=float, default=0.7, help='name for saving graph')
     parser.add_argument('--label_ratio', type=float, default=0.95, help='name for saving graph')
 
+    parser.add_argument('--pred_save_with_conf', type=str2bool, default=False, help='Save prediction result with confidence')
+    
     return parser
 
 def main(args):
@@ -275,10 +278,6 @@ def main(args):
         if args.pred:
             prediction(args, device)
             return
-        
-        elif args.inference:
-            inference(args, device)
-            return 
 
         # Evlaluation 실행 시
         elif args.eval:
