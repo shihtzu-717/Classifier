@@ -46,7 +46,7 @@ for pad in padding:
                     for soft_ratio in soft_label_ratio:
                         for ncls in nb_classes:
                             use_softlabel = True if ncls == 2 else False
-                            name = f'update_pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}'
+                            name = f'pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}'
                             if not os.path.isdir(os.getcwd() + '/log/' + name):
                                 os.system(f"""{base} \
                                         --padding {pad}\

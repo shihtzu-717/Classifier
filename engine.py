@@ -290,7 +290,6 @@ def prediction(args, device):
         pred, conf = int(torch.argmax(output_tensor).detach().cpu().numpy()), float((torch.max(output_tensor)).detach().cpu().numpy())
         softmax = nn.Softmax()
         probs = softmax(output_tensor)
-        print(probs)
         probs_max = ((torch.max(probs)).detach().cpu().numpy())*100
         result.append((pred, probs_max, target, data[0] / data.image_path, data.label))
         
@@ -340,7 +339,7 @@ def prediction(args, device):
                 img_plt = plt.imread(img_path)
                 plt.imshow(img_plt)
                 plt.axis('off')
-                plt.title(f"{ap[1]}, {an[2]:.2f}%")
+                plt.title(f"{ap[1]}, {ap[2]:.2f}%")
                 fn = os.path.basename(ap[0])
                 plt.savefig(Path(args.pred_save_path) / 'amb_pos' / 'inference' / fn, dpi=200)
 
@@ -353,7 +352,7 @@ def prediction(args, device):
                 img_plt = plt.imread(img_path)
                 plt.imshow(img_plt)
                 plt.axis('off')
-                plt.title(f"{n[1]}, {an[2]:.2f}%")
+                plt.title(f"{n[1]}, {n[2]:.2f}%")
                 fn = os.path.basename(n[0])
                 plt.savefig(Path(args.pred_save_path) / 'negative' / 'inference' / fn, dpi=200)
 
@@ -366,7 +365,7 @@ def prediction(args, device):
                 img_plt = plt.imread(img_path)
                 plt.imshow(img_plt)
                 plt.axis('off')
-                plt.title(f"{p[1]}, {an[2]:.2f}%")
+                plt.title(f"{p[1]}, {p[2]:.2f}%")
                 fn = os.path.basename(p[0])
                 plt.savefig(Path(args.pred_save_path) / 'positive' / 'inference' / fn, dpi=200)
     ##################################### save result image & anno #####################################
