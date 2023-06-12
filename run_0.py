@@ -45,17 +45,25 @@ for pad in padding:
                 for target_ratio in target_label_ratio:
                     for soft_ratio in soft_label_ratio:
                         for ncls in nb_classes:
-                            use_softlabel = True if ncls == 2 else False
-                            name = f'pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}'
-                            if not os.path.isdir(os.getcwd() + '/log/' + name):
-                                os.system(f"""{base} \
-                                        --padding {pad}\
-                                        --padding_size {pad_size}\
-                                        --use_bbox {bbox}\
-                                        --use_shift {shift}\
-                                        --output_dir results/b/{name} \
-                                        --soft_label_ratio {soft_ratio} \
-                                        --label_ratio {target_ratio} \
-                                        --nb_classes {ncls} \
-                                        --log_name {name} \
-                                        --use_softlabel={use_softlabel}""")
+                            for st in soft_type: 
+                                use_softlabel = True if ncls == 2 else False
+                                name = f'pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}'
+                                output_dir_name = org_output_dir_name
+                                if ncls == 4:
+                                    name += f'_soft-type_{st}'
+                                    output_dir_name += f"/4-class-soft_type-{st}"
+                                if ncls == 2:
+                                    output_dir_name += f"/2-class"
+                                if not os.path.isdir(os.getcwd() + '/log/' + name):
+                                    os.system(f"""{base} \
+                                            --padding {pad}\
+                                            --padding_size {pad_size}\
+                                            --use_bbox {bbox}\
+                                            --use_shift {shift}\
+                                            --output_dir results/{output_dir_name}/{name} \
+                                            --soft_label_ratio {soft_ratio} \
+                                            --label_ratio {target_ratio} \
+                                            --nb_classes {ncls} \
+                                            --log_name {name} \
+                                            --use_softlabel={use_softlabel} \
+                                            --soft_type {st}""")

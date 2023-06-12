@@ -160,7 +160,7 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
 
     # switch to evaluation mode
     model.eval()
-    for batch in metric_logger.log_every(data_loader, 10, header):
+    for batch in metric_logger.log_every(data_loader, 10, header): # 학습할 때는 data가 data_loader_val임 
         images = batch[0].to(device, non_blocking=True)
         target = batch[-1].to(device, non_blocking=True)
         if use_softlabel:
@@ -175,12 +175,12 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
             output = model(images)
             loss = criterion(output, target)
         
-        acc1, acc5 = accuracy(output, target, topk=(1, 2)) # top5는 의미 없어 2로 변경
+        acc1, acc2 = accuracy(output, target, topk=(1, 2)) # top5는 의미 없어 2로 변경
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+        metric_logger.meters['acc2'].update(acc2.item(), n=batch_size)
 
         for class_name, class_id in data_loader.dataset.class_to_idx.items():
             if use_softlabel:
@@ -198,14 +198,14 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
                     output_class = output_class.view(-1, 2)
                 else:
                     output_class = output_class.view(-1, len(data_loader.dataset.class_to_idx))
-                acc1_class, acc5_class = accuracy(output_class, target_class, topk=(1, 2)) # top5는 의미 없어 2로 변경
+                acc1_class, acc2_class = accuracy(output_class, target_class, topk=(1, 2)) # top5는 의미 없어 2로 변경
                 metric_logger.meters[f'acc1_{class_name}'].update(acc1_class.item(), n=data_size)
-                metric_logger.meters[f'acc5_{class_name}'].update(acc5_class.item(), n=data_size)
+                metric_logger.meters[f'acc2_{class_name}'].update(acc2_class.item(), n=data_size)
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
-          .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
+    print('* Acc@1 {top1.global_avg:.3f} Acc@2 {top2.global_avg:.3f} loss {losses.global_avg:.3f}'
+          .format(top1=metric_logger.acc1, top2=metric_logger.acc2, losses=metric_logger.loss))
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
@@ -411,6 +411,7 @@ def prediction(args, device):
             plt.close()
             print(cm)
             print('정밀도(Precision): {0:.4f}, 재현율(Recall): {1:.4f}'.format(precision, recall))
+            print('F1-score : {0:.4f}'.format(2 * (precision * recall) / (precision + recall)))
 
             # collect data 
             conf_TN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p!=pos_val] 

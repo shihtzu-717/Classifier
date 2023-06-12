@@ -159,8 +159,7 @@ def get_args_parser():
                                                 '/home/daree/nasdata/ambclass/2nd_data',
                                                 '/home/daree/nasdata/ambclass/3rd_data'], nargs='+', type=str,
                         help='dataset path')
-    parser.add_argument('--eval_data_path', default="/home/daree/nasdata/ambclass/1st_data", type=str,
-                        help='dataset path for evaluation')
+    parser.add_argument('--eval_data_path', type=str, help='dataset path for evaluation')
     parser.add_argument('--nb_classes', default=4, type=int,
                         help='number of the classification types')
     parser.add_argument('--imagenet_default_mean_and_std', type=str2bool, default=True)
@@ -245,7 +244,8 @@ def get_args_parser():
     parser.add_argument('--pred_eval', type=str2bool, default=True, help='Save prediction evaluation')
     parser.add_argument('--pred_eval_name', type=str, default='', help='name for saving graph')
 
-    parser.add_argument('--soft_label_ratio', type=float, default=0.7, help='name for saving graph')
+    parser.add_argument('--soft_label_ratio', type=float, default=0.7, help='soft lebel ratio')
+    parser.add_argument('--soft_type', type=int, default=1, help='soft lebel type')
     parser.add_argument('--label_ratio', type=float, default=0.95, help='name for saving graph')
 
     parser.add_argument('--pred_save_with_conf', type=str2bool, default=False, help='Save prediction result with confidence')
