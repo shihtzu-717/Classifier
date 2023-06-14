@@ -18,17 +18,17 @@ from pathlib import Path
 #             --pred_save_path /home/daree/output/set1"""
             # --pred_save_with_conf True"""
 
-base = """CUDA_VISIBLE_DEVICES=1 python main.py \
-            --lr 1e-6 \
-            --use_cropimg=False \
-            --auto_resume=False \
-            --drop_path 0.2 \
-            --layer_decay 0.8 \
-            --test_val_ratio 1.0 0.0 \
-            --nb_classes 2 \
-            --use_softlabel=True \
-            --use_class 0 \
-            --eval True """
+# base = """CUDA_VISIBLE_DEVICES=1 python main.py \
+#             --lr 1e-6 \
+#             --use_cropimg=False \
+#             --auto_resume=False \
+#             --drop_path 0.2 \
+#             --layer_decay 0.8 \
+#             --test_val_ratio 1.0 0.0 \
+#             --nb_classes 2 \
+#             --use_softlabel=True \
+#             --use_class 0 \
+#             --eval True """
 
 # base = """CUDA_VISIBLE_DEVICES=1 python main.py \
 #             --lr 1e-6 \
@@ -37,20 +37,36 @@ base = """CUDA_VISIBLE_DEVICES=1 python main.py \
 #             --drop_path 0.2 \
 #             --layer_decay 0.8 \
 #             --test_val_ratio 1.0 0.0 \
-#             --nb_classes 4 \
-#             --use_softlabel=False \
+#             --nb_classes 2 \
+#             --use_softlabel=True \
 #             --use_class 0 \
 #             --pred_eval True \
 #             --pred True"""
 
+base = """CUDA_VISIBLE_DEVICES=1 python main.py \
+            --lr 1e-6 \
+            --use_cropimg=False \
+            --auto_resume=False \
+            --drop_path 0.2 \
+            --layer_decay 0.8 \
+            --test_val_ratio 1.0 0.0 \
+            --nb_classes 4 \
+            --use_softlabel=True \
+            --use_class 0 \
+            --pred_eval True \
+            --pred True"""
+
 
 # models = (glob.glob('results/b/**/checkpoint-299.pth'))
 # models = (glob.glob('results/4class_set2_2/**/checkpoint-29.pth'))
-# models = glob.glob('230601-train_set1-2-3_test_set4_epoch_150/2-class/**/checkpoint-best.pth')
+models = glob.glob('230601-train_set1-2-3_test_set4_epoch_150/best_model/*nbclss_4*/checkpoint-best.pth')
 
-models = ['230601-train_set1-2-3_test_set4_epoch_150/2-class/pad_FIX2_padsize_384.0_box_False_shift_True_sratio_0.8_tratio_1_nbclss_2/checkpoint-best.pth']
-datas = ["/home/daree/nasdata/ambclass_update/4th_data"]
+# models = ['230601-train_set1-2-3_test_set4_epoch_150/2-class/pad_FIX2_padsize_384.0_box_False_shift_True_sratio_0.8_tratio_1_nbclss_2/checkpoint-best.pth']
+datas = ["/home/daree/nasdata/set4_none_neg"]
 
+# nb_classes가 2이면 --use_softlabel=True
+# nb_classes가 4이면 --use_softlabel=False
+# 근데 nb_classes 4인데 4to2-class 계산은 --use_softlabel=True
 
 for data in datas:
     for ckpt in models:

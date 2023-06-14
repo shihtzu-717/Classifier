@@ -311,10 +311,10 @@ def prediction(args, device):
             os.makedirs(Path(args.pred_save_path) /'negative' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'positive' / 'inference', exist_ok=True)
 
-        amb_neg = [(x[-2], 'amb_neg', x[1]) for x in result if x[0]==0]
-        amb_pos = [(x[-2], 'amb_pos', x[1]) for x in result if x[0]==1]
-        neg = [(x[-2], 'negative', x[1]) for x in result if x[0]==2]
-        pos = [(x[-2], 'positive', x[1]) for x in result if x[0]==3]
+        amb_neg = [(x[-2], 'amb_neg', x[1], x[-1]) for x in result if x[0]==0]
+        amb_pos = [(x[-2], 'amb_pos', x[1], x[-1]) for x in result if x[0]==1]
+        neg = [(x[-2], 'negative', x[1], x[-1]) for x in result if x[0]==2]
+        pos = [(x[-2], 'positive', x[1], x[-1]) for x in result if x[0]==3]
 
         for an in tqdm(amb_neg, desc='Ambiguous Negative images copying... '):
             img_path = str(an[0])
@@ -324,8 +324,9 @@ def prediction(args, device):
             if args.pred_save_with_conf:
                 img_plt = plt.imread(img_path)
                 plt.imshow(img_plt)
-                plt.axis('off')
+                # plt.axis('off')
                 plt.title(f"{an[1]},  {an[2]:.2f}%")
+                plt.xlabel(f"target: {an[-1]}")
                 fn = os.path.basename(an[0])
                 plt.savefig(Path(args.pred_save_path) / 'amb_neg' / 'inference' / fn, dpi=200)
 
@@ -338,8 +339,9 @@ def prediction(args, device):
             if args.pred_save_with_conf:
                 img_plt = plt.imread(img_path)
                 plt.imshow(img_plt)
-                plt.axis('off')
+                # plt.axis('off')
                 plt.title(f"{ap[1]}, {ap[2]:.2f}%")
+                plt.xlabel(f"target: {ap[-1]}")
                 fn = os.path.basename(ap[0])
                 plt.savefig(Path(args.pred_save_path) / 'amb_pos' / 'inference' / fn, dpi=200)
 
@@ -351,8 +353,9 @@ def prediction(args, device):
             if args.pred_save_with_conf:
                 img_plt = plt.imread(img_path)
                 plt.imshow(img_plt)
-                plt.axis('off')
+                # plt.axis('off')
                 plt.title(f"{n[1]}, {n[2]:.2f}%")
+                plt.xlabel(f"target: {n[-1]}")
                 fn = os.path.basename(n[0])
                 plt.savefig(Path(args.pred_save_path) / 'negative' / 'inference' / fn, dpi=200)
 
@@ -364,8 +367,9 @@ def prediction(args, device):
             if args.pred_save_with_conf:
                 img_plt = plt.imread(img_path)
                 plt.imshow(img_plt)
-                plt.axis('off')
+                # plt.axis('off')
                 plt.title(f"{p[1]}, {p[2]:.2f}%")
+                plt.xlabel(f"target: {p[-1]}")
                 fn = os.path.basename(p[0])
                 plt.savefig(Path(args.pred_save_path) / 'positive' / 'inference' / fn, dpi=200)
     ##################################### save result image & anno #####################################
@@ -400,6 +404,27 @@ def prediction(args, device):
                 y_pred = [0 if i==2 or i==0 else 1 for i in y_pred]
                 y_target = [0 if i==2 or i==0 else 1 for i in y_target]
                 pos_val = 1
+
+            # 4class to 3class 변경
+            # if args.use_softlabel:
+            #     y_pred = []
+            #     y_target = []
+            #     for i in org_y_pred:
+            #         if i == 1 or i ==2:
+            #             y_pred.append(1)
+            #         elif i==3:
+            #             y_pred.append(2)
+            #         else:
+            #             y_pred.append(i)
+                
+            #     for i in org_y_target:
+            #         if i == 1 or i ==2:
+            #             y_target.append(1)
+            #         elif i==3:
+            #             y_target.append(2)
+            #         else:
+            #             y_target.append(i)
+            #     pos_val = 2
 
             # precision recall 계산
             precision = precision_score(y_target, y_pred, average= "macro")
