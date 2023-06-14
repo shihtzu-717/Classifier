@@ -51,7 +51,7 @@ base = """CUDA_VISIBLE_DEVICES=1 python main.py \
             --layer_decay 0.8 \
             --test_val_ratio 1.0 0.0 \
             --nb_classes 4 \
-            --use_softlabel=True \
+            --use_softlabel=False \
             --use_class 0 \
             --pred_eval True \
             --pred True"""
@@ -62,7 +62,7 @@ base = """CUDA_VISIBLE_DEVICES=1 python main.py \
 models = glob.glob('230601-train_set1-2-3_test_set4_epoch_150/best_model/*nbclss_4*/checkpoint-best.pth')
 
 # models = ['230601-train_set1-2-3_test_set4_epoch_150/2-class/pad_FIX2_padsize_384.0_box_False_shift_True_sratio_0.8_tratio_1_nbclss_2/checkpoint-best.pth']
-datas = ["/home/daree/nasdata/set4_none_neg"]
+datas = ["/home/daree/nasdata/ambclass_update/4th_data"]
 
 # nb_classes가 2이면 --use_softlabel=True
 # nb_classes가 4이면 --use_softlabel=False

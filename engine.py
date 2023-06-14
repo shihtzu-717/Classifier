@@ -28,6 +28,11 @@ from pathlib import Path
 
 from torch import nn
 
+def softmax(x):
+    exp_x = torch.exp(x - torch.max(x))
+    softmax_x = exp_x / torch.sum(exp_x)
+    return softmax_x
+
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
@@ -288,8 +293,12 @@ def prediction(args, device):
         # model output 
         output_tensor = model(input_tensor) 
         pred, conf = int(torch.argmax(output_tensor).detach().cpu().numpy()), float((torch.max(output_tensor)).detach().cpu().numpy())
-        softmax = nn.Softmax()
-        probs = softmax(output_tensor)
+        # softmax = nn.Softmax()
+        # probs = softmax(output_tensor)
+
+        # output = np.squeeze(output_tensor)
+        probs = softmax(output_tensor) # softmax 통과
+
         probs_max = ((torch.max(probs)).detach().cpu().numpy())*100
         result.append((pred, probs_max, target, data[0] / data.image_path, data.label))
         
@@ -406,24 +415,28 @@ def prediction(args, device):
                 pos_val = 1
 
             # 4class to 3class 변경
+            # org_y_pred = [i[0] for i in result]
+            # org_y_target = [i[2] for i in result]
+
+            # y_pred = []
+            # y_target = []
+
             # if args.use_softlabel:
-            #     y_pred = []
-            #     y_target = []
             #     for i in org_y_pred:
-            #         if i == 1 or i ==2:
+            #         if i == 0 or i == 1:
+            #             y_pred.append(0)
+            #         elif i == 2:
             #             y_pred.append(1)
-            #         elif i==3:
+            #         else:
             #             y_pred.append(2)
-            #         else:
-            #             y_pred.append(i)
-                
+            # 
             #     for i in org_y_target:
-            #         if i == 1 or i ==2:
+            #         if i == 0 or i == 1:
+            #             y_target.append(0)
+            #         elif i == 2:
             #             y_target.append(1)
-            #         elif i==3:
-            #             y_target.append(2)
             #         else:
-            #             y_target.append(i)
+            #             y_target.append(2)
             #     pos_val = 2
 
             # precision recall 계산
