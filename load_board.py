@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 from collections import defaultdict
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
-
+from tqdm import tqdm
 
 def tabulate_events(dpath):
     dirs = sorted(os.listdir(dpath))
@@ -59,8 +59,10 @@ def get_file_path(dpath, tag):
 
 
 if __name__ == '__main__':
-    path = "./log/"
-    to_csv(path)
+    path_list = glob.glob("./log_230601-train_set1-2-3_test_set4_epoch_150/*")
+    print(path_list)
+    for i in tqdm(path_list):
+        to_csv(i)
  
 
 #  pad_FIX_padsize_50.0_box_True_shift_True_ratio_0.95

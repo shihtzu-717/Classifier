@@ -134,6 +134,9 @@ def get_args_parser():
                         help='cutmix alpha, cutmix enabled if > 0.')
     parser.add_argument('--use_softlabel', type=str2bool, default=False,
                         help='Softlabel using 2classes output for 4classes input. ')
+
+    parser.add_argument('--four_to_three', type=str2bool, default=False,
+                        help='evaluation 4-class to 3-class')
     
 
     parser.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,

@@ -43,6 +43,19 @@ from pathlib import Path
 #             --pred_eval True \
 #             --pred True"""
 
+# base = """CUDA_VISIBLE_DEVICES=1 python main.py \
+#             --lr 1e-6 \
+#             --use_cropimg=False \
+#             --auto_resume=False \
+#             --drop_path 0.2 \
+#             --layer_decay 0.8 \
+#             --test_val_ratio 1.0 0.0 \
+#             --nb_classes 4 \
+#             --use_softlabel=True \
+#             --use_class 0 \
+#             --pred_eval True \
+#             --pred True"""
+
 base = """CUDA_VISIBLE_DEVICES=1 python main.py \
             --lr 1e-6 \
             --use_cropimg=False \

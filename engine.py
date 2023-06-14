@@ -415,29 +415,28 @@ def prediction(args, device):
                 pos_val = 1
 
             # 4class to 3class 변경
-            # org_y_pred = [i[0] for i in result]
-            # org_y_target = [i[2] for i in result]
+            if args.four_to_three:
+                org_y_pred = [i[0] for i in result] 
+                org_y_target = [i[2] for i in result]
+                y_pred = []
+                y_target = []
 
-            # y_pred = []
-            # y_target = []
-
-            # if args.use_softlabel:
-            #     for i in org_y_pred:
-            #         if i == 0 or i == 1:
-            #             y_pred.append(0)
-            #         elif i == 2:
-            #             y_pred.append(1)
-            #         else:
-            #             y_pred.append(2)
-            # 
-            #     for i in org_y_target:
-            #         if i == 0 or i == 1:
-            #             y_target.append(0)
-            #         elif i == 2:
-            #             y_target.append(1)
-            #         else:
-            #             y_target.append(2)
-            #     pos_val = 2
+                for i in org_y_pred:
+                    if i == 0 or i == 1:
+                        y_pred.append(0)
+                    elif i == 2:
+                        y_pred.append(1)
+                    else:
+                        y_pred.append(2)
+            
+                for i in org_y_target:
+                    if i == 0 or i == 1:
+                        y_target.append(0)
+                    elif i == 2:
+                        y_target.append(1)
+                    else:
+                        y_target.append(2)
+                pos_val = 2
 
             # precision recall 계산
             precision = precision_score(y_target, y_pred, average= "macro")
@@ -468,14 +467,17 @@ def prediction(args, device):
             plt.xlabel('Confidence')
             plt.ylabel('Conunt')
             plt.legend(loc='best')
+            plt.title('True: {0}, False: {1}'.format(len(conf_TN+conf_TP),len(conf_FN+conf_FP)))
             plt.savefig('image/'+args.pred_eval_name+'hist_tf.png')
             plt.close()
+            
 
             # histogram TN TP FN FP
             plt.hist((conf_TN,conf_TP,conf_FN,conf_FP), label=('TN', 'TP','FN','FP'),histtype='bar', bins=30)
             plt.xlabel('Confidence')
             plt.ylabel('Conunt')
             plt.legend(loc='best')
+            plt.title('TN: {0}, TP: {1}, FN: {2}, FP: {3}'.format(len(conf_TN),len(conf_TP),len(conf_FN),len(conf_FP)))
             plt.savefig('image/'+args.pred_eval_name+'hist_4.png')
             plt.close()
             
