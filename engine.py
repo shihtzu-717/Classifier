@@ -255,7 +255,10 @@ def prediction(args, device):
 
     random.shuffle(data_list)  # Data list shuffle
     tonorm = transforms.Normalize(mean, std)  # Transform 생성
+
     for data in tqdm(data_list, desc='Image Cropping... '):
+        if data.class_id not in args.use_class:
+            continue
         crop_img = preprocess_data.crop_image(
             image_path = data[0] / data.image_path, 
             bbox = data.bbox, 
