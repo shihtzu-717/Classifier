@@ -14,7 +14,6 @@ from tqdm import tqdm
 def tabulate_events(dpath):
     dirs = sorted(os.listdir(dpath))
     summary_iterators = [EventAccumulator(os.path.join(dpath, dname)).Reload() for dname in dirs]
-
     tags = summary_iterators[0].Tags()['scalars']
     for n, it in enumerate(summary_iterators):
         if it.Tags()['scalars'] != tags:
@@ -40,7 +39,6 @@ def to_csv(dpath):
         val.extend([dir])
         for idx, tag in enumerate(tags):
             if idx in [5, 8]:
-                print(tag)
                 n_val = values[idx]
                 if ii == 0:
                     col.extend([f'{tag}_last_val', f'{tag}_ave_val', f'{tag}_max_val']) 
@@ -52,7 +50,6 @@ def to_csv(dpath):
 
 def get_file_path(dpath, tag):
     # file_name = tag.replace("/", "_") + '.csv'
-    # print(file_name)
     file_name = dpath.split('/')[-1] + '.csv'
     folder_path = os.path.join('csv')
     if not os.path.exists(folder_path):
