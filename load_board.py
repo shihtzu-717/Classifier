@@ -31,9 +31,8 @@ def tabulate_events(dpath):
 def to_csv(dpath):
     d, dirs = tabulate_events(dpath)
     tags, values = zip(*d.items())
-
     col = [si for i, si in enumerate(dirs[0].split('_')) if i%2==0]
-    col.extend(['dir']) 
+    # col.extend(['dir']) 
 
     data = []
     for ii, dir in enumerate(dirs):
@@ -41,6 +40,7 @@ def to_csv(dpath):
         val.extend([dir])
         for idx, tag in enumerate(tags):
             if idx in [5, 8]:
+                print(tag)
                 n_val = values[idx]
                 if ii == 0:
                     col.extend([f'{tag}_last_val', f'{tag}_ave_val', f'{tag}_max_val']) 
@@ -51,7 +51,9 @@ def to_csv(dpath):
             
 
 def get_file_path(dpath, tag):
-    file_name = tag.replace("/", "_") + '.csv'
+    # file_name = tag.replace("/", "_") + '.csv'
+    # print(file_name)
+    file_name = dpath.split('/')[-1] + '.csv'
     folder_path = os.path.join('csv')
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
@@ -59,11 +61,11 @@ def get_file_path(dpath, tag):
 
 
 if __name__ == '__main__':
-    path_list = glob.glob("./log_230601-train_set1-2-3_test_set4_epoch_150/*")
-    print(path_list)
+    path_list = glob.glob("./log/*")
     for i in tqdm(path_list):
         to_csv(i)
  
 
 #  pad_FIX_padsize_50.0_box_True_shift_True_ratio_0.95
 # pad_FIX_padsize_100.0_box_False_shift_False_ratio_0.7
+# classifier/code/log/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.7_tratio_0.95_nbclss_2
