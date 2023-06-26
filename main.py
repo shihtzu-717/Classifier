@@ -517,6 +517,7 @@ def main(args):
         return
 
     max_accuracy = 0.0
+    min_loss = 1.0
     if args.model_ema and args.model_ema_eval:
         max_accuracy_ema = 0.0
 
@@ -551,6 +552,12 @@ def main(args):
                     utils.save_model(
                         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                         loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
+            if test_stats["loss"] < min_loss:
+                min_loss = test_stats["loss"]
+                if args.output_dir and args.save_ckpt:
+                    utils.save_model(
+                        args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
+                        loss_scaler=loss_scaler, epoch="min_loss", model_ema=model_ema)
             print(f'Max accuracy: {max_accuracy:.2f}%\n\n')
 
             if log_writer is not None:
