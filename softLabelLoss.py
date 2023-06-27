@@ -49,18 +49,19 @@ class softLabelLoss(nn.Module):
             onehot = torch.zeros(len(target), 4).to(target.device)
             for i, t in enumerate(target):
                 ## 원래 꺼
-                # if t == 0: # amb_neg
-                #     onehot[i][0] = self.label_ratio
-                #     onehot[i][2] = self.soft_ratio
-                # elif t == 1: # amb_pos
-                #     onehot[i][1] = self.label_ratio
-                #     onehot[i][3] = self.soft_ratio
-                # elif t == 2: # neg
-                #     onehot[i][2] = self.label_ratio
-                #     onehot[i][0] = self.soft_ratio
-                # elif t == 3: # pos
-                #     onehot[i][3] = self.label_ratio
-                #     onehot[i][1] = self.soft_ratio
+                if self.soft_type == 0:
+                    if t == 0: # amb_neg
+                        onehot[i][0] = self.label_ratio
+                        onehot[i][2] = self.soft_ratio
+                    elif t == 1: # amb_pos
+                        onehot[i][1] = self.label_ratio
+                        onehot[i][3] = self.soft_ratio
+                    elif t == 2: # neg
+                        onehot[i][2] = self.label_ratio
+                        onehot[i][0] = self.soft_ratio
+                    elif t == 3: # pos
+                        onehot[i][3] = self.label_ratio
+                        onehot[i][1] = self.soft_ratio
 
                 # type == 1 : amb_neg + amb_pos = 1
                 if self.soft_type == 1:

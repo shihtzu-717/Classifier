@@ -13,31 +13,51 @@ padding = ['PIXEL']
 padding_size = [100]
 use_bbox = ['False']
 use_shift = ['True']
-target_label_ratio = [0.92, 0.95, 1]
 soft_label_ratio = [0.7, 0.8, 0.9]
+target_label_ratio = [0.92, 0.95, 1]
 nb_classes = [2, 4]
 soft_type = [1, 2]
-org_output_dir_name = "/230601-train_set1-2-3_test_set4_epoch_150"
+
+org_output_dir_name = "230627_set1-12"
+
+# padding = ['PIXEL']
+# padding_size = [100]
+# use_bbox = ['False']
+# use_shift = ['True']
+# soft_label_ratio = [0.7]
+# target_label_ratio = [0.92]
+# nb_classes = [2, 4]
+# soft_type = [1, 2]
+
+# org_output_dir_name = "compare_acc-loss_test"
 
 
-base = """CUDA_VISIBLE_DEVICES=1 python main.py \
+base = """CUDA_VISIBLE_DEVICES=2 python main.py \
             --model convnext_base --drop_path 0.2 --input_size 224 \
-            --batch_size 128 --lr 5e-5 --update_freq 2 \
-            --epochs 150 --weight_decay 1e-8 \
+            --batch_size 256 --lr 5e-5 --update_freq 2 \
+            --epochs 200 --warmup_epochs 20 --weight_decay 1e-8 \
             --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
             --finetune checkpoint/convnext_base_22k_224.pth \
-            --data_path '/home/daree/nasdata/ambclass_update/1st_data' '/home/daree/nasdata/ambclass_update/2nd_data' '/home/daree/nasdata/ambclass_update/3rd_data'\
-            --eval_data_path /home/daree/nasdata/ambclass_update/4th_data \
+            --data_path '/home/daree/nasdata/trainset/01st_data' \
+                '/home/daree/nasdata/trainset/02nd_data' \
+                '/home/daree/nasdata/trainset/03rd_data' \
+                '/home/daree/nasdata/trainset/04th_data' \
+                '/home/daree/nasdata/trainset/05th_data' \
+                '/home/daree/nasdata/trainset/06th_data' \
+                '/home/daree/nasdata/trainset/07th_data' \
+                '/home/daree/nasdata/trainset/08th_data' \
+                '/home/daree/nasdata/trainset/09th_data' \
+                '/home/daree/nasdata/trainset/10th_data' \
+                '/home/daree/nasdata/trainset/11th_data' \
+                '/home/daree/nasdata/trainset/12th_data' \
             --model_ema true --model_ema_eval true \
             --data_set image_folder \
-            --warmup_epochs 15 \
             --use_cropimg=False \
             --auto_resume=False \
             --test_val_ratio 0.0 0.2 \
             --split_file_write=False \
             --use_cropimg False \
             --save_ckpt True \
-            --lossfn BCE \
             --use_class 0"""
 
 for pad in padding:
@@ -54,8 +74,10 @@ for pad in padding:
                                 if ncls == 4:
                                     name += f'_soft-type_{st}'
                                     output_dir_name += f"/4-class-soft_type-{st}"
+                                    lossfn = 'CE'
                                 if ncls == 2:
                                     output_dir_name += f"/2-class"
+                                    lossfn = 'BCE'
                                 if not os.path.isdir(os.getcwd() + '/log/' + name):
                                     os.system(f"""{base} \
                                             --padding {pad}\
@@ -68,4 +90,5 @@ for pad in padding:
                                             --nb_classes {ncls} \
                                             --log_name {name} \
                                             --use_softlabel={use_softlabel} \
-                                            --soft_type {st}""")
+                                            --soft_type {st} \
+                                            --lossfn {lossfn}""")

@@ -128,7 +128,7 @@ def read_annotation(annotation):
 
 def make_list(data_root, label_list=None, split_info=None):
     data_list = defaultdict(list)
-    print('dataset\tlabel\tclass_id\ttest_cnt\tval_cnt\ttrain_cnt')
+    # print('dataset\tlabel\tclass_id\ttest_cnt\tval_cnt\ttrain_cnt')
     if split_info is None:
         for annotation in data_root.glob('*.txt'):
             image_path = find_image(annotation)

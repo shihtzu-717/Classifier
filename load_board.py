@@ -30,14 +30,18 @@ def tabulate_events(dpath):
 def to_csv(dpath):
     d, dirs = tabulate_events(dpath)
     tags, values = zip(*d.items())
-    col = [si for i, si in enumerate(dirs[0].split('_')) if i%2==0]
+    # col = [si for i, si in enumerate(dirs[0].split('_')) if i%2==0]
     # col.extend(['dir']) 
+
+    col = []
 
     data = []
     for ii, dir in enumerate(dirs):
-        val = [si for i, si in enumerate(dir.split('_')) if i%2==1]
-        val.extend([dir])
+        # val = [si for i, si in enumerate(dir.split('_')) if i%2==1]
+        # val.extend([dir])
+        val = []
         for idx, tag in enumerate(tags):
+            tag = tag.split('/')[-1]
             if idx in [5, 8]:
                 n_val = values[idx]
                 if ii == 0:

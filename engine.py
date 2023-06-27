@@ -460,7 +460,7 @@ def prediction(args, device):
                 shutil.copy(p[0], Path(args.pred_save_path) / 'positive' / 'images')
                 shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
                 if args.pred_save_with_conf:
-                    create_images_with_conf(img_path, p, 'positive', args.pred_save_path)
+                    create_images_with_conf(img_path, an, 'positive', args.pred_save_path)
                     # img_plt = plt.imread(img_path)
                     # plt.imshow(img_plt)
                     # # plt.axis('off')

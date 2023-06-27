@@ -543,6 +543,14 @@ def main(args):
                 utils.save_model(
                     args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch=epoch, model_ema=model_ema)
+                
+        if train_stats["loss"] < min_loss:
+            min_loss = train_stats["loss"]
+            if args.output_dir and args.save_ckpt:
+                utils.save_model(
+                    args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
+                    loss_scaler=loss_scaler, epoch="train_min_loss", model_ema=model_ema)
+                
         if data_loader_val is not None:
             test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp, use_softlabel=args.use_softlabel)
             print(f"Accuracy of the model on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
@@ -552,12 +560,7 @@ def main(args):
                     utils.save_model(
                         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                         loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
-            if test_stats["loss"] < min_loss:
-                min_loss = test_stats["loss"]
-                if args.output_dir and args.save_ckpt:
-                    utils.save_model(
-                        args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                        loss_scaler=loss_scaler, epoch="min_loss", model_ema=model_ema)
+                    
             print(f'Max accuracy: {max_accuracy:.2f}%\n\n')
 
             if log_writer is not None:

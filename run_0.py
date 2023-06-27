@@ -49,12 +49,13 @@ target_label_ratio = [0.92]
 soft_label_ratio = [0.7]
 nb_classes = [4]
 soft_type = [1]
+
 org_output_dir_name = "test"
 
 
 base = """CUDA_VISIBLE_DEVICES=0 python main.py \
             --model convnext_base --drop_path 0.2 --input_size 224 \
-            --batch_size 128 --lr 5e-5 --update_freq 2 \
+            --batch_size 256 --lr 5e-5 --update_freq 2 \
             --epochs 50 --weight_decay 1e-8 \
             --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
             --finetune checkpoint/convnext_base_22k_224.pth \
