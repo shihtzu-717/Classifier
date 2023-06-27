@@ -34,6 +34,13 @@ def create_images_with_conf(image_path, re, label, pred_save_path):
     background = np.ones((height, width, 3), dtype=np.uint8) * background_color
 
     image = cv2.imread(image_path)
+    x, y, w, h = float(re[4][0])*1920, float(re[4][1])*1080, float(re[4][2])*1920, float(re[4][3])*1080
+    x1 = int(round(x-w/2))
+    y1 = int(round(y-h/2))
+    x2 = int(round(x+w/2))
+    y2 = int(round(y+h/2))
+    c1, c2 = (x1, y1), (x2, y2)
+    cv2.rectangle(image, c1, c2, color=[0, 255, 255])
 
     # 이미지 중앙 위치 계산
     bg_height, bg_width, _ = background.shape
@@ -354,7 +361,7 @@ def prediction(args, device):
         probs = softmax(output_tensor) # softmax 통과
 
         probs_max = ((torch.max(probs)).detach().cpu().numpy())*100
-        result.append((pred, probs_max, target, data[0] / data.image_path, data.label))
+        result.append((pred, probs_max, target, data[0] / data.image_path, data.label, data.bbox))
         
     ##################################### save result image & anno #####################################
 
@@ -376,10 +383,10 @@ def prediction(args, device):
             os.makedirs(Path(args.pred_save_path) /'negative' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'positive' / 'inference', exist_ok=True)
 
-        amb_neg = [(x[-2], 'amb_neg', x[1], x[-1]) for x in result if x[0]==0]
-        amb_pos = [(x[-2], 'amb_pos', x[1], x[-1]) for x in result if x[0]==1]
-        neg = [(x[-2], 'negative', x[1], x[-1]) for x in result if x[0]==2]
-        pos = [(x[-2], 'positive', x[1], x[-1]) for x in result if x[0]==3]
+        amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5]) for x in result if x[0]==0]
+        amb_pos = [(x[3], 'amb_pos', x[1], x[4], x[5]) for x in result if x[0]==1]
+        neg = [(x[3], 'negative', x[1], x[4], x[5]) for x in result if x[0]==2]
+        pos = [(x[3], 'positive', x[1], x[4], x[5]) for x in result if x[0]==3]
 
 
         for an in tqdm(amb_neg, desc='Class_0 images copying... '):
