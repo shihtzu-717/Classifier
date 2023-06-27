@@ -5,7 +5,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-
+import os
 import math
 import torch
 import preprocess_data
@@ -25,8 +25,59 @@ from PIL import Image
 from timm.models import create_model
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
 from pathlib import Path
-
 from torch import nn
+
+
+def create_images_with_conf(image_path, re, label, pred_save_path):
+    background_color = (255, 255, 255)  # 흰색 배경
+    width, height = 2560, 1440  # 배경의 가로와 세로 크기
+    background = np.ones((height, width, 3), dtype=np.uint8) * background_color
+
+    image = cv2.imread(image_path)
+
+    # 이미지 중앙 위치 계산
+    bg_height, bg_width, _ = background.shape
+    img_height, img_width, _ = image.shape
+    x = (bg_width - img_width) // 2
+    y = (bg_height - img_height) // 2
+
+    # 이미지를 배경 중앙에 추가
+    background[y:y+img_height, x:x+img_width] = image
+
+    # 텍스트 추가
+    text_top = f"{re[1]},  {re[2]:.2f}%"
+    text_bottom = f"target: {re[-1]}"
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 2  # 폰트 크기를 2로 변경
+    text_color = (0, 0, 0)  # 검은색 텍스트
+    text_thickness = 3
+
+    # 텍스트 위치 계산
+    text_top_size, _ = cv2.getTextSize(text_top, font, font_scale, text_thickness)
+    text_bottom_size, _ = cv2.getTextSize(text_bottom, font, font_scale, text_thickness)
+    text_top_x = (bg_width - text_top_size[0]) // 2
+    text_top_y = y - 20  # 이미지 중앙 위쪽에 20px 떨어진 위치
+    text_bottom_x = (bg_width - text_bottom_size[0]) // 2
+    text_bottom_y = y + img_height + text_bottom_size[1] + 20  # 이미지 중앙 아래쪽에 20px 떨어진 위치
+
+    # 텍스트를 배경에 추가
+    # cv2.putText(background, text_top, (text_top_x, text_top_y), font, font_scale, text_color, text_thickness, cv2.LINE_AA)
+    # cv2.putText(background, text_bottom, (text_bottom_x, text_bottom_y), font, font_scale, text_color, text_thickness, cv2.LINE_AA)
+    background_um = cv2.UMat(background)
+    cv2.putText(background_um, text_top, (text_top_x, text_top_y), font, font_scale, text_color, text_thickness, cv2.LINE_AA)
+    cv2.putText(background_um, text_bottom, (text_bottom_x, text_bottom_y), font, font_scale, text_color, text_thickness, cv2.LINE_AA)
+
+    # UMat을 다시 일반 이미지로 변환
+    background = background_um.get()
+
+    # 이미지 데이터 타입 변환
+    background = np.asarray(background, dtype=np.uint8)
+
+    # 이미지 저장
+    fn = os.path.basename(image_path)
+    output_path = str(Path(pred_save_path) / label / 'inference' / fn)
+    cv2.imwrite(output_path, background)
+
 
 def softmax(x):
     exp_x = torch.exp(x - torch.max(x))
@@ -309,17 +360,19 @@ def prediction(args, device):
 
     if args.pred_save:
         import os
-        os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'images', exist_ok=True)
-        os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'annotations', exist_ok=True)
-        os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'images', exist_ok=True)
-        os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'annotations', exist_ok=True)
+        if args.nb_classes == 4 : 
+            os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'images', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'annotations', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'images', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'annotations', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'negative' / 'images', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'negative' / 'annotations', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'positive' / 'images', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'positive' / 'annotations', exist_ok=True)
         if args.pred_save_with_conf:
-            os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'inference', exist_ok=True)
-            os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'inference', exist_ok=True)
+            if args.nb_classes == 4 : 
+                os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'inference', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'negative' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'positive' / 'inference', exist_ok=True)
 
@@ -328,62 +381,86 @@ def prediction(args, device):
         neg = [(x[-2], 'negative', x[1], x[-1]) for x in result if x[0]==2]
         pos = [(x[-2], 'positive', x[1], x[-1]) for x in result if x[0]==3]
 
-        for an in tqdm(amb_neg, desc='Ambiguous Negative images copying... '):
+
+        for an in tqdm(amb_neg, desc='Class_0 images copying... '):
             img_path = str(an[0])
             annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
-            shutil.copy(an[0], Path(args.pred_save_path) /'amb_neg' / 'images')
-            shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
+            # shutil.copy(an[0], Path(args.pred_save_path) /'amb_neg' / 'images')
+            # shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
+            if args.nb_classes == 2:
+                shutil.copy(an[0], Path(args.pred_save_path) /'negative' / 'images')
+                shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
+            else:
+                shutil.copy(an[0], Path(args.pred_save_path) /'amb_neg' / 'images')
+                shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
             if args.pred_save_with_conf:
-                img_plt = plt.imread(img_path)
-                plt.imshow(img_plt)
-                # plt.axis('off')
-                plt.title(f"{an[1]},  {an[2]:.2f}%")
-                plt.xlabel(f"target: {an[-1]}")
-                fn = os.path.basename(an[0])
-                plt.savefig(Path(args.pred_save_path) / 'amb_neg' / 'inference' / fn, dpi=200)
+                if args.nb_classes == 2:
+                    create_images_with_conf(img_path, an, 'negative', args.pred_save_path)
+                else:
+                    create_images_with_conf(img_path, an, 'amb_neg', args.pred_save_path)
+                # img_plt = plt.imread(img_path)
+                # plt.imshow(img_plt)
+                # # plt.axis('off')
+                # plt.title(f"{an[1]},  {an[2]:.2f}%")
+                # plt.xlabel(f"target: {an[-1]}")
+                # fn = os.path.basename(an[0])
+                # plt.savefig(Path(args.pred_save_path) / 'amb_neg' / 'inference' / fn, dpi=200)
 
 
-        for ap in tqdm(amb_pos, desc='Ambiguous Positive images copying... '):
+        for ap in tqdm(amb_pos, desc='Class_1 images copying... '):
             img_path = str(ap[0])
             annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
-            shutil.copy(ap[0], Path(args.pred_save_path) / 'amb_pos' / 'images')
-            shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
+            if args.nb_classes == 2:
+                shutil.copy(ap[0], Path(args.pred_save_path) / 'positive' / 'images')
+                shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
+            else:
+                shutil.copy(ap[0], Path(args.pred_save_path) / 'amb_pos' / 'images')
+                shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
+            # shutil.copy(ap[0], Path(args.pred_save_path) / 'amb_pos' / 'images')
+            # shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
             if args.pred_save_with_conf:
-                img_plt = plt.imread(img_path)
-                plt.imshow(img_plt)
-                # plt.axis('off')
-                plt.title(f"{ap[1]}, {ap[2]:.2f}%")
-                plt.xlabel(f"target: {ap[-1]}")
-                fn = os.path.basename(ap[0])
-                plt.savefig(Path(args.pred_save_path) / 'amb_pos' / 'inference' / fn, dpi=200)
+                if args.nb_classes == 2:
+                    create_images_with_conf(img_path, an, 'positive', args.pred_save_path)
+                else:
+                    create_images_with_conf(img_path, an, 'amb_pos', args.pred_save_path)
+                # img_plt = plt.imread(img_path)
+                # plt.imshow(img_plt)
+                # # plt.axis('off')
+                # plt.title(f"{ap[1]}, {ap[2]:.2f}%")
+                # plt.xlabel(f"target: {ap[-1]}")
+                # fn = os.path.basename(ap[0])
+                # plt.savefig(Path(args.pred_save_path) / 'amb_pos' / 'inference' / fn, dpi=200)
 
-        for n in tqdm(neg, desc='Negative images copying... '):
-            img_path = str(n[0])
-            annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
-            shutil.copy(n[0], Path(args.pred_save_path) /'negative' / 'images')
-            shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
-            if args.pred_save_with_conf:
-                img_plt = plt.imread(img_path)
-                plt.imshow(img_plt)
-                # plt.axis('off')
-                plt.title(f"{n[1]}, {n[2]:.2f}%")
-                plt.xlabel(f"target: {n[-1]}")
-                fn = os.path.basename(n[0])
-                plt.savefig(Path(args.pred_save_path) / 'negative' / 'inference' / fn, dpi=200)
+        if args.nb_classes == 4:
+            for n in tqdm(neg, desc='Class_2 images copying... '):
+                img_path = str(n[0])
+                annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
+                shutil.copy(n[0], Path(args.pred_save_path) /'negative' / 'images')
+                shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
+                if args.pred_save_with_conf:
+                    create_images_with_conf(img_path, an, 'negative', args.pred_save_path)
+                    # img_plt = plt.imread(img_path)
+                    # plt.imshow(img_plt)
+                    # # plt.axis('off')
+                    # plt.title(f"{n[1]}, {n[2]:.2f}%")
+                    # plt.xlabel(f"target: {n[-1]}")
+                    # fn = os.path.basename(n[0])
+                    # plt.savefig(Path(args.pred_save_path) / 'negative' / 'inference' / fn, dpi=200)
 
-        for p in tqdm(pos, desc='Positive images copying... '):
-            img_path = str(p[0])
-            annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
-            shutil.copy(p[0], Path(args.pred_save_path) / 'positive' / 'images')
-            shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
-            if args.pred_save_with_conf:
-                img_plt = plt.imread(img_path)
-                plt.imshow(img_plt)
-                # plt.axis('off')
-                plt.title(f"{p[1]}, {p[2]:.2f}%")
-                plt.xlabel(f"target: {p[-1]}")
-                fn = os.path.basename(p[0])
-                plt.savefig(Path(args.pred_save_path) / 'positive' / 'inference' / fn, dpi=200)
+            for p in tqdm(pos, desc='Class_3 images copying... '):
+                img_path = str(p[0])
+                annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
+                shutil.copy(p[0], Path(args.pred_save_path) / 'positive' / 'images')
+                shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
+                if args.pred_save_with_conf:
+                    create_images_with_conf(img_path, an, 'positive', args.pred_save_path)
+                    # img_plt = plt.imread(img_path)
+                    # plt.imshow(img_plt)
+                    # # plt.axis('off')
+                    # plt.title(f"{p[1]}, {p[2]:.2f}%")
+                    # plt.xlabel(f"target: {p[-1]}")
+                    # fn = os.path.basename(p[0])
+                    # plt.savefig(Path(args.pred_save_path) / 'positive' / 'inference' / fn, dpi=200)
     ##################################### save result image & anno #####################################
 
     ##################################### save evalutations #####################################
@@ -403,6 +480,7 @@ def prediction(args, device):
             plt.xlabel('Confidence')
             plt.ylabel('Conunt')
             plt.legend(loc='upper left')
+            # plt.savefig('image/'+args.pred_eval_name+'hist_PN.png')
             plt.savefig(args.pred_eval_name+'hist_PN.png')
             plt.close()
 
@@ -447,7 +525,8 @@ def prediction(args, device):
             cm = confusion_matrix(y_target, y_pred)
             cm_display = ConfusionMatrixDisplay(cm).plot()
             plt.title('Precision: {0:.4f}, Recall: {1:.4f}'.format(precision, recall))
-            plt.savefig('image/'+args.pred_eval_name+'cm.png')
+            # plt.savefig('image/'+args.pred_eval_name+'cm.png')
+            plt.savefig(args.pred_eval_name+'cm.png')
             plt.close()
             print(cm)
             print('정밀도(Precision): {0:.4f}, 재현율(Recall): {1:.4f}'.format(precision, recall))
@@ -471,7 +550,8 @@ def prediction(args, device):
             plt.ylabel('Conunt')
             plt.legend(loc='best')
             plt.title('True: {0}, False: {1}'.format(len(conf_TN+conf_TP),len(conf_FN+conf_FP)))
-            plt.savefig('image/'+args.pred_eval_name+'hist_tf.png')
+            # plt.savefig('image/'+args.pred_eval_name+'hist_tf.png')
+            plt.savefig(args.pred_eval_name+'hist_tf.png')
             plt.close()
             
 
@@ -481,30 +561,33 @@ def prediction(args, device):
             plt.ylabel('Conunt')
             plt.legend(loc='best')
             plt.title('TN: {0}, TP: {1}, FN: {2}, FP: {3}'.format(len(conf_TN),len(conf_TP),len(conf_FN),len(conf_FP)))
-            plt.savefig('image/'+args.pred_eval_name+'hist_4.png')
+            # plt.savefig('image/'+args.pred_eval_name+'hist_4.png')
+            plt.savefig(args.pred_eval_name+'hist_4.png')
             plt.close()
             
-        # scatter graph
-        if len(conf_TN):
-            plt.scatter(conf_TN, itn, alpha=0.4, color='tab:blue', label='TN', s=20)
-        if len(conf_TP):
-            plt.scatter(conf_TP, itp, alpha=0.4, color='tab:orange', label='TP', s=20)
-        if len(conf_FN):
-            plt.scatter(conf_FN, ifn, alpha=0.4, color='tab:green', marker='x', label='FN', s=20)
-        if len(conf_FP):
-            plt.scatter(conf_FP, ifp, alpha=0.4, color='tab:red', marker='x', label='FT', s=20)
-        plt.legend(loc='best')
-        plt.xlabel('Confidence')
-        plt.ylabel('Image Index')
-        plt.savefig('image/'+args.pred_eval_name+'scater.png')
-        plt.close()
+            # scatter graph
+            if len(conf_TN):
+                plt.scatter(conf_TN, itn, alpha=0.4, color='tab:blue', label='TN', s=20)
+            if len(conf_TP):
+                plt.scatter(conf_TP, itp, alpha=0.4, color='tab:orange', label='TP', s=20)
+            if len(conf_FN):
+                plt.scatter(conf_FN, ifn, alpha=0.4, color='tab:green', marker='x', label='FN', s=20)
+            if len(conf_FP):
+                plt.scatter(conf_FP, ifp, alpha=0.4, color='tab:red', marker='x', label='FT', s=20)
+            plt.legend(loc='best')
+            plt.xlabel('Confidence')
+            plt.ylabel('Image Index')
+            # plt.savefig('image/'+args.pred_eval_name+'scater.png')
+            plt.savefig(args.pred_eval_name+'scater.png')
+            plt.close()
 
-        # histogram 
-        plt.hist(((conf_TN+conf_TP+conf_FN+conf_FP)), histtype='bar', bins=50)
-        plt.xlabel('Confidence')
-        plt.ylabel('Conunt')
-        plt.savefig('image/'+args.pred_eval_name+'hist.png')
-        plt.close()
+            # histogram 
+            plt.hist(((conf_TN+conf_TP+conf_FN+conf_FP)), histtype='bar', bins=50)
+            plt.xlabel('Confidence')
+            plt.ylabel('Conunt')
+            # plt.savefig('image/'+args.pred_eval_name+'hist.png')
+            plt.savefig(args.pred_eval_name+'hist.png')
+            plt.close()
 
     ##################################### save evalutations #####################################
 
