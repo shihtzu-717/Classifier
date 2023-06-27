@@ -9,27 +9,27 @@ import os
 # target_label_ratio = [1, 0.98, 0.96, 0.94, 0.92, 0.90 ]
 # warmup = [5]
 
-padding = ['PIXEL']
-padding_size = [100]
-use_bbox = ['False']
-use_shift = ['True']
-soft_label_ratio = [0.7, 0.8, 0.9]
-target_label_ratio = [0.92, 0.95, 1]
-nb_classes = [2, 4]
-soft_type = [1, 2]
-
-org_output_dir_name = "230627_set1-12"
-
 # padding = ['PIXEL']
 # padding_size = [100]
 # use_bbox = ['False']
 # use_shift = ['True']
-# soft_label_ratio = [0.7]
-# target_label_ratio = [0.92]
+# soft_label_ratio = [0.7, 0.8, 0.9]
+# target_label_ratio = [0.92, 0.95, 1]
 # nb_classes = [2, 4]
 # soft_type = [1, 2]
 
-# org_output_dir_name = "compare_acc-loss_test"
+# org_output_dir_name = "230627_set1-12"
+
+padding = ['PIXEL']
+padding_size = [100]
+use_bbox = ['False']
+use_shift = ['True']
+soft_label_ratio = [0.7]
+target_label_ratio = [0.92]
+nb_classes = [2, 4]
+soft_type = [1, 2]
+
+org_output_dir_name = "loss-function_test"
 
 
 base = """CUDA_VISIBLE_DEVICES=2 python main.py \
@@ -77,7 +77,8 @@ for pad in padding:
                                     lossfn = 'CE'
                                 if ncls == 2:
                                     output_dir_name += f"/2-class"
-                                    lossfn = 'BCE'
+                                    # lossfn = 'BCE'
+                                    lossfn = 'CE'
                                 if not os.path.isdir(os.getcwd() + '/log/' + name):
                                     os.system(f"""{base} \
                                             --padding {pad}\

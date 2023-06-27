@@ -81,7 +81,7 @@ def create_images_with_conf(image_path, re, label, pred_save_path):
     background = np.asarray(background, dtype=np.uint8)
 
     # 이미지 저장
-    fn = os.path.basename(image_path)
+    fn = (os.path.basename(image_path)).split('.')[0]+'_'+re[5]+'.jpg'
     output_path = str(Path(pred_save_path) / label / 'inference' / fn)
     cv2.imwrite(output_path, background)
 
@@ -314,6 +314,7 @@ def prediction(args, device):
     random.shuffle(data_list)  # Data list shuffle
     tonorm = transforms.Normalize(mean, std)  # Transform 생성
 
+    idx = 0
     for data in tqdm(data_list, desc='Image Cropping... '):
         if data.class_id not in args.use_class:
             continue
@@ -361,7 +362,8 @@ def prediction(args, device):
         probs = softmax(output_tensor) # softmax 통과
 
         probs_max = ((torch.max(probs)).detach().cpu().numpy())*100
-        result.append((pred, probs_max, target, data[0] / data.image_path, data.label, data.bbox))
+        result.append((pred, probs_max, target, data[0] / data.image_path, data.label, data.bbox, str(idx)))
+        idx += 1
         
     ##################################### save result image & anno #####################################
 
@@ -383,10 +385,10 @@ def prediction(args, device):
             os.makedirs(Path(args.pred_save_path) /'negative' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'positive' / 'inference', exist_ok=True)
 
-        amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5]) for x in result if x[0]==0]
-        amb_pos = [(x[3], 'amb_pos', x[1], x[4], x[5]) for x in result if x[0]==1]
-        neg = [(x[3], 'negative', x[1], x[4], x[5]) for x in result if x[0]==2]
-        pos = [(x[3], 'positive', x[1], x[4], x[5]) for x in result if x[0]==3]
+        amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5], x[6]) for x in result if x[0]==0]
+        amb_pos = [(x[3], 'amb_pos', x[1], x[4], x[5], x[6]) for x in result if x[0]==1]
+        neg = [(x[3], 'negative', x[1], x[4], x[5], x[6]) for x in result if x[0]==2]
+        pos = [(x[3], 'positive', x[1], x[4], x[5], x[6]) for x in result if x[0]==3]
 
 
         for an in tqdm(amb_neg, desc='Class_0 images copying... '):

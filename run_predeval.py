@@ -84,6 +84,7 @@ graph_save_dir = "image"
 # models = glob.glob('results/after*/*nbclss_4*/checkpoint-best.pth')
 # models = glob.glob('results/compare_acc-loss_test/2-class/*/checkpoint-best.pth')
 models = glob.glob('results/compare_acc-loss_test/2-class/*/checkpoint-train_min_loss.pth')
+# models = glob.glob('results/set1-3/*/checkpoint-best.pth')
 
 # datas = ["/home/daree/nasdata/ambclass_update/4th_data"]
 # datas = ["../nasdata/ambclass_update/4th_data"]
