@@ -52,8 +52,8 @@ def create_images_with_conf(image_path, re, label, pred_save_path):
     background[y:y+img_height, x:x+img_width] = image
 
     # 텍스트 추가
-    text_top = f"{re[1]},  {re[2]:.2f}%"
-    text_bottom = f"target: {re[-1]}"
+    text_top = f"Class: {re[5]},  {re[2]:.2f}%"
+    text_bottom = f"target: {re[3]}"
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 2  # 폰트 크기를 2로 변경
     text_color = (0, 0, 0)  # 검은색 텍스트
@@ -383,10 +383,10 @@ def prediction(args, device):
             os.makedirs(Path(args.pred_save_path) /'negative' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'positive' / 'inference', exist_ok=True)
 
-        amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5]) for x in result if x[0]==0]
-        amb_pos = [(x[3], 'amb_pos', x[1], x[4], x[5]) for x in result if x[0]==1]
-        neg = [(x[3], 'negative', x[1], x[4], x[5]) for x in result if x[0]==2]
-        pos = [(x[3], 'positive', x[1], x[4], x[5]) for x in result if x[0]==3]
+        amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5], x[0]) for x in result if x[0]==0]
+        amb_pos = [(x[3], 'amb_pos', x[1], x[4], x[5], x[0]) for x in result if x[0]==1]
+        neg = [(x[3], 'negative', x[1], x[4], x[5], x[0]) for x in result if x[0]==2]
+        pos = [(x[3], 'positive', x[1], x[4], x[5], x[0]) for x in result if x[0]==3]
 
 
         for an in tqdm(amb_neg, desc='Class_0 images copying... '):
