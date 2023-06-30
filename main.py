@@ -550,6 +550,7 @@ def main(args):
                 utils.save_model(
                     args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch="train_min_loss", model_ema=model_ema)
+                torch.save(model.state_dict(), Path(args.output_dir) /'checkpoint-train_min_loss_weights.pth')
                 
         if data_loader_val is not None:
             test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp, use_softlabel=args.use_softlabel)
@@ -560,6 +561,7 @@ def main(args):
                     utils.save_model(
                         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                         loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
+                    torch.save(model.state_dict(), Path(args.output_dir) / 'checkpoint-best_weights.pth')
                     
             print(f'Max accuracy: {max_accuracy:.2f}%\n\n')
 
