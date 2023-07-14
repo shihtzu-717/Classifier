@@ -9,17 +9,26 @@ import os
 # target_label_ratio = [1, 0.98, 0.96, 0.94, 0.92, 0.90 ]
 # warmup = [5]
 
+# padding = ['PIXEL']
+# padding_size = [100]
+# use_bbox = ['False']
+# use_shift = ['True']
+# soft_label_ratio = [0.7, 0.8, 0.9]
+# target_label_ratio = [0.92, 0.95, 1]
+# nb_classes = [2]
+# soft_type = [1, 2]
+
 padding = ['PIXEL']
 padding_size = [100]
 use_bbox = ['False']
 use_shift = ['True']
-soft_label_ratio = [0.7, 0.8, 0.9]
-target_label_ratio = [0.92, 0.95, 1]
-nb_classes = [2, 4]
+soft_label_ratio = [0.7]
+target_label_ratio = [0.95]
+nb_classes = [2]
 soft_type = [1, 2]
 
 
-base = """CUDA_VISIBLE_DEVICES=2 python main.py \
+base = """CUDA_VISIBLE_DEVICES=0 python main.py \
             --model convnext_base --drop_path 0.2 --input_size 224 \
             --batch_size 256 --lr 5e-5 --update_freq 2 \
             --epochs 200 --warmup_epochs 20 --weight_decay 1e-8 \
@@ -34,7 +43,10 @@ base = """CUDA_VISIBLE_DEVICES=2 python main.py \
                 '/home/daree/nasdata/trainset/07th_data' \
                 '/home/daree/nasdata/trainset/08th_data' \
                 '/home/daree/nasdata/trainset/09th_data' \
-            --model_ema true --model_ema_eval true \
+                '/home/daree/nasdata/trainset/10th_data' \
+                '/home/daree/nasdata/trainset/11th_data' \
+                '/home/daree/nasdata/trainset/12th_data' \
+            --model_ema false --model_ema_eval false \
             --data_set image_folder \
             --use_cropimg=False \
             --auto_resume=False \
@@ -45,9 +57,14 @@ base = """CUDA_VISIBLE_DEVICES=2 python main.py \
             --lossfn BCE \
             --use_class 0"""
 
-org_output_dir_name = "230630_set1-9"
+# org_output_dir_name = "after_set1-3"
+org_output_dir_name = "230710_set1-12"
 
-
+# org_output_dir_name = "230706_set1-12_class-balance"
+log_dir = "log_230710_set1-12"
+if not os.path.exists(log_dir):
+    os.mkdir(log_dir)
+ 
 for pad in padding:
     for pad_size in padding_size:
         for bbox in use_bbox:
@@ -57,14 +74,16 @@ for pad in padding:
                         for ncls in nb_classes:
                             for st in soft_type: 
                                 use_softlabel = True if ncls == 2 else False
-                                name = f'pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}'
+                                name = f'pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}_10'
                                 output_dir_name = org_output_dir_name
                                 if ncls == 4:
                                     name += f'_soft-type_{st}'
                                     output_dir_name += f"/4-class-soft_type-{st}"
                                 if ncls == 2:
                                     output_dir_name += f"/2-class"
-                                if not os.path.isdir(os.getcwd() + '/log/' + name):
+                                    if st == 2:
+                                        continue
+                                if not os.path.isdir(os.getcwd() + f'/{log_dir}/' + name):
                                     os.system(f"""{base} \
                                             --padding {pad}\
                                             --padding_size {pad_size}\
@@ -74,9 +93,10 @@ for pad in padding:
                                             --soft_label_ratio {soft_ratio} \
                                             --label_ratio {target_ratio} \
                                             --nb_classes {ncls} \
+                                            --log_dir {log_dir} \
                                             --log_name {name} \
-                                            --use_softlabel={use_softlabel} \
+                                            --use_softlabel {use_softlabel} \
                                             --soft_type {st}""")
                                 else:
-                                    print(f"Check the {os.getcwd() + '/log/' + name}")
+                                    print(f"Check the {os.getcwd() + f'/{log_dir}/' + name} ")
 

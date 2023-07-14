@@ -10,7 +10,8 @@ def calculate_stat(path, cnt):
     for i in range(cnt+1):
         info[str(i)]=0
 
-    annot_path = path+'/*/annotations/*.txt'
+    # annot_path = path+'/*/annotations/*.txt'
+    annot_path = path+'/*.txt'
     annots_file = glob.glob(annot_path, recursive=True)
 
     for i in tqdm(annots_file):

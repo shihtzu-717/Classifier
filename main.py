@@ -162,7 +162,7 @@ def get_args_parser():
                                                 '/home/daree/nasdata/ambclass/2nd_data',
                                                 '/home/daree/nasdata/ambclass/3rd_data'], nargs='+', type=str,
                         help='dataset path')
-    parser.add_argument('--eval_data_path', type=str, help='dataset path for evaluation')
+    parser.add_argument('--eval_data_path', type=str, nargs='+', help='dataset path for evaluation')
     parser.add_argument('--nb_classes', default=4, type=int,
                         help='number of the classification types')
     parser.add_argument('--imagenet_default_mean_and_std', type=str2bool, default=True)
@@ -252,6 +252,7 @@ def get_args_parser():
     parser.add_argument('--label_ratio', type=float, default=0.95, help='name for saving graph')
 
     parser.add_argument('--pred_save_with_conf', type=str2bool, default=False, help='Save prediction result with confidence')
+    parser.add_argument('--eval_not_include_neg', type=str2bool, default=False, help='evaluation not include negative data')
     
     return parser
 
@@ -288,14 +289,15 @@ def main(args):
                                   test_r=args.test_val_ratio[0], 
                                   val_r=args.test_val_ratio[1], 
                                   file_write=args.split_file_write,
-                                  label_list = args.label_list) 
+                                  label_list = args.label_list)
+
             dataset_val = PotholeDataset(
                 data_set=sets['test'], 
                 data_path=Path(args.eval_data_path), 
                 args=args, 
                 is_train=False) 
             dataset_train = dataset_val
-
+             
         # Train 실행 시
         else:
             tr=[]
@@ -316,6 +318,15 @@ def main(args):
                 data_set=sets['val'], 
                 args=args, 
                 is_train=False) 
+            
+            with open(Path(args.output_dir)/'valid.txt', 'w') as f:
+                for i in sets['val']:
+                    val_path = os.path.join(i.data_set, i.image_path)
+                    if not os.path.exists(val_path):
+                        print(val_path, "is not exists")
+                    else:
+                        f.write(val_path+'\n')
+            
     
         # Data 수량 확인
         s=num_cl_tr=num_cl_vl=''
@@ -517,6 +528,7 @@ def main(args):
         return
 
     max_accuracy = 0.0
+    val_loss = 1.0
     min_loss = 1.0
     if args.model_ema and args.model_ema_eval:
         max_accuracy_ema = 0.0
@@ -562,6 +574,14 @@ def main(args):
                         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                         loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
                     torch.save(model.state_dict(), Path(args.output_dir) / 'checkpoint-best_weights.pth')
+
+            if test_stats["loss"] < val_loss:
+                val_loss = test_stats["loss"]
+                if args.output_dir and args.save_ckpt:
+                    utils.save_model(
+                        args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
+                        loss_scaler=loss_scaler, epoch="valid_min_loss", model_ema=model_ema)
+                    torch.save(model.state_dict(), Path(args.output_dir) /'checkpoint-valid_min_loss_weights.pth')
                     
             print(f'Max accuracy: {max_accuracy:.2f}%\n\n')
 

@@ -34,7 +34,8 @@ def create_images_with_conf(image_path, re, label, pred_save_path):
     background = np.ones((height, width, 3), dtype=np.uint8) * background_color
 
     image = cv2.imread(image_path)
-    x, y, w, h = float(re[4][0])*1920, float(re[4][1])*1080, float(re[4][2])*1920, float(re[4][3])*1080
+    ih, iw, ic = image.shape
+    x, y, w, h = float(re[4][0])*iw, float(re[4][1])*ih, float(re[4][2])*iw, float(re[4][3])*ih
     x1 = int(round(x-w/2))
     y1 = int(round(y-h/2))
     x2 = int(round(x+w/2))
@@ -74,7 +75,7 @@ def create_images_with_conf(image_path, re, label, pred_save_path):
     cv2.putText(background_um, text_top, (text_top_x, text_top_y), font, font_scale, text_color, text_thickness, cv2.LINE_AA)
     cv2.putText(background_um, text_bottom, (text_bottom_x, text_bottom_y), font, font_scale, text_color, text_thickness, cv2.LINE_AA)
 
-    # UMat을 다시 일반 이미지로 변환
+    # # UMat을 다시 일반 이미지로 변환
     background = background_um.get()
 
     # 이미지 데이터 타입 변환
@@ -84,7 +85,6 @@ def create_images_with_conf(image_path, re, label, pred_save_path):
     fn = (os.path.basename(image_path)).split('.')[0]+'_'+re[5]+'.jpg'
     output_path = str(Path(pred_save_path) / label / 'inference' / fn)
     cv2.imwrite(output_path, background)
-
 
 def softmax(x):
     exp_x = torch.exp(x - torch.max(x))
@@ -275,7 +275,7 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
 @torch.no_grad()
 def prediction(args, device):
     from datasets import PotholeDataset, get_split_data
-    from sklearn.metrics import precision_score , recall_score , confusion_matrix, ConfusionMatrixDisplay
+    from sklearn.metrics import precision_score , recall_score , confusion_matrix, ConfusionMatrixDisplay, classification_report
     import random
 
     imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
@@ -303,14 +303,21 @@ def prediction(args, device):
     # Data laod     
     data_list = []
     result = []
-    sets = get_split_data(data_root=Path(args.eval_data_path), 
-                                  test_r=args.test_val_ratio[0], 
-                                  val_r=args.test_val_ratio[1], 
-                                  file_write=args.split_file_write,
-                                  label_list = args.label_list) 
-        
-    data_list = sets['test'] if len(sets['test']) > 0 else sets['val']
+    # sets = get_split_data(data_root=Path(args.eval_data_path), 
+    #                               test_r=args.test_val_ratio[0], 
+    #                               val_r=args.test_val_ratio[1], 
+    #                               file_write=args.split_file_write,
+    #                               label_list = args.label_list) 
+    # data_list = sets['test'] if len(sets['test']) > 0 else sets['val']
 
+    for path in args.eval_data_path:
+        settmp = get_split_data(data_root=Path(path), 
+                                    test_r=args.test_val_ratio[0], 
+                                    val_r=args.test_val_ratio[1], 
+                                    file_write=args.split_file_write,
+                                    label_list = args.label_list)
+        data_list += settmp['val']
+        
     random.shuffle(data_list)  # Data list shuffle
     tonorm = transforms.Normalize(mean, std)  # Transform 생성
 
@@ -369,7 +376,7 @@ def prediction(args, device):
 
     if args.pred_save:
         import os
-        if args.nb_classes == 4 : 
+        if args.use_softlabel == False and args.nb_classes == 4 : 
             os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'images', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'annotations', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'images', exist_ok=True)
@@ -379,31 +386,41 @@ def prediction(args, device):
         os.makedirs(Path(args.pred_save_path) /'positive' / 'images', exist_ok=True)
         os.makedirs(Path(args.pred_save_path) /'positive' / 'annotations', exist_ok=True)
         if args.pred_save_with_conf:
-            if args.nb_classes == 4 : 
+            if args.use_softlabel == False and args.nb_classes == 4 : 
                 os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'inference', exist_ok=True)
                 os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'negative' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'positive' / 'inference', exist_ok=True)
 
-        amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5], x[6]) for x in result if x[0]==0]
-        amb_pos = [(x[3], 'amb_pos', x[1], x[4], x[5], x[6]) for x in result if x[0]==1]
-        neg = [(x[3], 'negative', x[1], x[4], x[5], x[6]) for x in result if x[0]==2]
-        pos = [(x[3], 'positive', x[1], x[4], x[5], x[6]) for x in result if x[0]==3]
+        if args.use_softlabel and args.nb_classes == 4:
+            amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5], x[6]) for x in result if x[0]==0] + [(x[3], 'negative', x[1], x[4], x[5], x[6]) for x in result if x[0]==2]
+            amb_pos = [(x[3], 'amb_pos', x[1], x[4], x[5], x[6]) for x in result if x[0]==1] + [(x[3], 'positive', x[1], x[4], x[5], x[6]) for x in result if x[0]==3]
 
-
+        else:
+            amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5], x[6]) for x in result if x[0]==0]
+            amb_pos = [(x[3], 'amb_pos', x[1], x[4], x[5], x[6]) for x in result if x[0]==1]
+            neg = [(x[3], 'negative', x[1], x[4], x[5], x[6]) for x in result if x[0]==2]
+            pos = [(x[3], 'positive', x[1], x[4], x[5], x[6]) for x in result if x[0]==3]
+        
+        with open(Path(args.pred_save_path)/"conf_avg.txt", 'w') as f:
+            f.write('')
+        an_sum = 0
+        an_min = 100.0
+        an_max = 0
         for an in tqdm(amb_neg, desc='Class_0 images copying... '):
             img_path = str(an[0])
+            an_conf = float(an[2])
             annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
             # shutil.copy(an[0], Path(args.pred_save_path) /'amb_neg' / 'images')
             # shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
-            if args.nb_classes == 2:
+            if args.nb_classes == 2 or (args.use_softlabel and args.nb_classes == 4):
                 shutil.copy(an[0], Path(args.pred_save_path) /'negative' / 'images')
                 shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
             else:
                 shutil.copy(an[0], Path(args.pred_save_path) /'amb_neg' / 'images')
                 shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
             if args.pred_save_with_conf:
-                if args.nb_classes == 2:
+                if args.nb_classes == 2 or (args.use_softlabel and args.nb_classes == 4):
                     create_images_with_conf(img_path, an, 'negative', args.pred_save_path)
                 else:
                     create_images_with_conf(img_path, an, 'amb_neg', args.pred_save_path)
@@ -414,12 +431,29 @@ def prediction(args, device):
                 # plt.xlabel(f"target: {an[-1]}")
                 # fn = os.path.basename(an[0])
                 # plt.savefig(Path(args.pred_save_path) / 'amb_neg' / 'inference' / fn, dpi=200)
+            an_sum = an_sum + an_conf
+            if an_max < an_conf:
+                an_max = an_conf
+            if an_min > an_conf:
+                an_min = an_conf
+        try:
+            print(f"Class_0 AVG: {an_sum / len(amb_neg):.2f}%")
+            with open(Path(args.pred_save_path)/"conf_avg.txt", "a") as f:
+                f.write(f"Class_0 CNT: {len(amb_neg)}, ")
+                f.write(f"Class_0 AVG: {an_sum / len(amb_neg):.2f}%, ")
+                f.write(f"Class_0 MAX: {an_max:.2f}%, ")
+                f.write(f"Class_0 MIN: {an_min:.2f}%\n")
+        except ZeroDivisionError:
+            print("No Class_0 Data")
 
-
+        ap_sum = 0
+        ap_min = 100.0
+        ap_max = 0
         for ap in tqdm(amb_pos, desc='Class_1 images copying... '):
             img_path = str(ap[0])
+            ap_conf = float(ap[2])
             annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
-            if args.nb_classes == 2:
+            if args.nb_classes == 2 or (args.use_softlabel and args.nb_classes == 4):
                 shutil.copy(ap[0], Path(args.pred_save_path) / 'positive' / 'images')
                 shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
             else:
@@ -428,7 +462,7 @@ def prediction(args, device):
             # shutil.copy(ap[0], Path(args.pred_save_path) / 'amb_pos' / 'images')
             # shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
             if args.pred_save_with_conf:
-                if args.nb_classes == 2:
+                if args.nb_classes == 2 or (args.use_softlabel and args.nb_classes == 4):
                     create_images_with_conf(img_path, ap, 'positive', args.pred_save_path)
                 else:
                     create_images_with_conf(img_path, ap, 'amb_pos', args.pred_save_path)
@@ -439,10 +473,28 @@ def prediction(args, device):
                 # plt.xlabel(f"target: {ap[-1]}")
                 # fn = os.path.basename(ap[0])
                 # plt.savefig(Path(args.pred_save_path) / 'amb_pos' / 'inference' / fn, dpi=200)
-
-        if args.nb_classes == 4:
+            ap_sum = ap_sum + ap_conf
+            if ap_max < ap_conf:
+                ap_max = ap_conf
+            if ap_min > ap_conf:
+                ap_min = ap_conf
+        try:
+            print(f"Class_1 AVG: {ap_sum / len(amb_pos):.2f}%")
+            with open(Path(args.pred_save_path)/"conf_avg.txt", "a") as f:
+                f.write(f"Class_1 CNT: {len(amb_pos)}, ")
+                f.write(f"Class_1 AVG: {ap_sum / len(amb_pos):.2f}%, ")
+                f.write(f"Class_1 MAX: {ap_max:.2f}%, ")
+                f.write(f"Class_1 MIN: {ap_min:.2f}%\n")
+        except ZeroDivisionError:
+                print("No Class_1 Data")
+        
+        if (args.use_softlabel == False) and (args.nb_classes == 4):
+            n_sum = 0
+            n_min = 100.0
+            n_max = 0
             for n in tqdm(neg, desc='Class_2 images copying... '):
                 img_path = str(n[0])
+                n_conf = float(n[2])
                 annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
                 shutil.copy(n[0], Path(args.pred_save_path) /'negative' / 'images')
                 shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
@@ -455,14 +507,32 @@ def prediction(args, device):
                     # plt.xlabel(f"target: {n[-1]}")
                     # fn = os.path.basename(n[0])
                     # plt.savefig(Path(args.pred_save_path) / 'negative' / 'inference' / fn, dpi=200)
+                n_sum = n_sum + n_conf
+                if n_max < n_conf:
+                    n_max = n_conf
+                if n_min > n_conf:
+                    n_min = n_conf
+            try:
+                print(f"Class_2 AVG: {n_sum / len(neg):.2f}%")
+                with open(Path(args.pred_save_path)/"conf_avg.txt", "a") as f:
+                    f.write(f"Class_2 CNT: {len(neg)}, ")
+                    f.write(f"Class_2 AVG: {n_sum / len(neg):.2f}%, ")
+                    f.write(f"Class_2 MAX: {n_max:.2f}%, ")
+                    f.write(f"Class_2 MIN: {n_min:.2f}%\n")
+            except ZeroDivisionError:
+                print("No Class_2 Data")
 
+            p_sum = 0
+            p_min = 100.0
+            p_max = 0
             for p in tqdm(pos, desc='Class_3 images copying... '):
                 img_path = str(p[0])
+                p_conf = float(p[2])
                 annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
                 shutil.copy(p[0], Path(args.pred_save_path) / 'positive' / 'images')
                 shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
                 if args.pred_save_with_conf:
-                    create_images_with_conf(img_path, an, 'positive', args.pred_save_path)
+                    create_images_with_conf(img_path, p, 'positive', args.pred_save_path)
                     # img_plt = plt.imread(img_path)
                     # plt.imshow(img_plt)
                     # # plt.axis('off')
@@ -470,6 +540,21 @@ def prediction(args, device):
                     # plt.xlabel(f"target: {p[-1]}")
                     # fn = os.path.basename(p[0])
                     # plt.savefig(Path(args.pred_save_path) / 'positive' / 'inference' / fn, dpi=200)
+                p_sum = p_sum + p_conf
+                if p_max < p_conf:
+                    p_max = p_conf
+                if p_min > p_conf:
+                    p_min = p_conf
+            try:
+                print(f"Class_3 AVG: {p_sum / len(pos):.2f}%")
+                with open(Path(args.pred_save_path)/"conf_avg.txt", "a") as f:
+                    f.write(f"Class_3 CNT: {len(pos)}, ")
+                    f.write(f"Class_3 AVG: {p_sum / len(pos):.2f}%, ")
+                    f.write(f"Class_3 MAX: {p_max:.2f}%, ")
+                    f.write(f"Class_3 MIN: {p_min:.2f}%\n")
+            except ZeroDivisionError:
+                print("No Class_3 Data")
+        
     ##################################### save result image & anno #####################################
 
     ##################################### save evalutations #####################################
@@ -533,20 +618,87 @@ def prediction(args, device):
             recall = recall_score(y_target, y_pred, average= "macro")
             cm = confusion_matrix(y_target, y_pred)
             cm_display = ConfusionMatrixDisplay(cm).plot()
+            if (args.use_softlabel == False) and (args.nb_classes == 4):
+                cls_report = classification_report(y_target, y_pred, target_names=["amb_neg", "amb_pos", "Negative", "Positive"])
+
+            else:
+                try:
+                    cls_report = classification_report(y_target, y_pred, target_names=["Negative", "Positive"])
+                except:
+                    cls_report = classification_report(y_target, y_pred, target_names=["Class_0"])
+            
             plt.title('Precision: {0:.4f}, Recall: {1:.4f}'.format(precision, recall))
             # plt.savefig('image/'+args.pred_eval_name+'cm.png')
             plt.savefig(args.pred_eval_name+'cm.png')
             plt.close()
             print(cm)
-            print('정밀도(Precision): {0:.4f}, 재현율(Recall): {1:.4f}'.format(precision, recall))
+            print('정밀도(Precision): {0:.4f}, 재현율(Recall): {1:.4f}\n'.format(precision, recall))
+            with open(Path(args.pred_save_path)/"conf_avg.txt", "a") as f:
+                f.write('정밀도(Precision): {0:.4f}, 재현율(Recall): {1:.4f}\n'.format(precision, recall))
+                f.write(cls_report)
+                f.write(str(cm))
+            print(cls_report)
             print('F1-score : {0:.4f}'.format(2 * (precision * recall) / (precision + recall)))
 
+            if args.eval_not_include_neg:
+                not_include_neg_list = []
+                for i in result:
+                    if i[2] != 2:
+                        y_pred = [i[0] for i in result]
+                        y_target = [i[2] for i in result]
+                        not_include_neg_list.append(i)
+                result = not_include_neg_list
+
             # collect data 
-            conf_TN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p!=pos_val] 
-            conf_TP = [x[1] for p, t, x in zip(y_pred, y_target,result) if p==t and p==pos_val] 
-            conf_FN = [x[1] for p, t, x in zip(y_pred, y_target,result) if p!=t and p!=pos_val] 
-            conf_FP = [x[1] for p, t, x in zip(y_pred, y_target,result) if p!=t and p==pos_val] 
+            conf_TN = [x[1] for p, t, x in zip(y_pred, y_target, result) if p==t and p!=pos_val] 
+            conf_TP = [x[1] for p, t, x in zip(y_pred, y_target, result) if p==t and p==pos_val] 
+            conf_FN = [x[1] for p, t, x in zip(y_pred, y_target, result) if p!=t and p!=pos_val] 
+            conf_FP = [x[1] for p, t, x in zip(y_pred, y_target, result) if p!=t and p==pos_val] 
             
+            true_neg_over_90 = 0
+            true_pos_over_90 = 0
+            false_neg_over_90 = 0
+            false_pos_over_90 = 0
+            true_neg_under_90 = 0
+            true_pos_under_90 = 0
+            false_neg_under_90 = 0
+            false_pos_under_90 = 0
+
+            for i in conf_TP:
+                if i >= 90.0:
+                    true_pos_over_90+=1
+                else:
+                    true_pos_under_90+=1
+
+            for i in conf_TN:
+                if i >= 90.0:
+                    true_neg_over_90+=1
+                else:
+                    true_neg_under_90+=1
+
+            for i in conf_FP:
+                if i >= 90.0:
+                    false_pos_over_90+=1
+                else:
+                    false_pos_under_90+=1
+
+            for i in conf_FN:
+                if i >= 90.0:
+                    false_neg_over_90+=1
+                else:
+                    false_neg_under_90+=1
+
+            with open(Path(args.pred_save_path)/"conf_avg.txt", "a") as f:
+                f.write(f"\n\nTP: {true_pos_over_90+true_pos_under_90}, True Positive data over 90%: {true_pos_over_90}, True Positive data under 90%: {true_pos_under_90}\n")
+                f.write(f"TN: {true_neg_over_90+true_neg_under_90}, True Neagtive data over 90%: {true_neg_over_90}, True Neagtive data under 90%: {true_neg_under_90}\n")
+                f.write(f"FP: {false_pos_over_90+false_pos_under_90}, False Positive data over 90%: {false_pos_over_90}, False Positive data under 90%: {false_pos_under_90}\n")
+                f.write(f"FN: {false_neg_over_90+false_neg_under_90}, False Neagtive data over 90%: {false_neg_over_90}, False Neagtive data under 90%: {false_neg_under_90}\n")
+
+            print(f"TP: {true_pos_over_90+true_pos_under_90}, True Positive data over 90%: {true_pos_over_90}, True Positive data under 90%: {true_pos_under_90}")
+            print(f"TN: {true_neg_over_90+true_neg_under_90}, True Neagtive data over 90%: {true_neg_over_90}, True Neagtive data under 90%: {true_neg_under_90}")
+            print(f"FP: {false_pos_over_90+false_pos_under_90}, False Positive data over 90%: {false_pos_over_90}, False Positive data under 90%: {false_pos_under_90}")
+            print(f"FN: {false_neg_over_90+false_neg_under_90}, False Neagtive data over 90%: {false_neg_over_90}, False Neagtive data under 90%: {false_neg_under_90}")
+
             # get index 
             itn = [i for i in range(len(result)) if (y_pred[i]==y_target[i] and y_pred[i]!=pos_val)]
             itp = [i for i in range(len(result)) if (y_pred[i]==y_target[i] and y_pred[i]==pos_val)]
