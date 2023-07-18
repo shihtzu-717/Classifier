@@ -12,7 +12,8 @@ __pycache__/
 /image*
 /img*
 /2-class_valid
-/
+/*tmp
+/tmp*
 /*log
 /*graph
 /23*
