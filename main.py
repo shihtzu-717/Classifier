@@ -7,6 +7,7 @@
 
 import argparse
 import datetime
+import sys
 import numpy as np
 import time
 import torch
@@ -24,6 +25,7 @@ from timm.utils import ModelEma
 from optim_factory import create_optimizer, LayerDecayValueAssigner
 
 from datasets import build_dataset, PotholeDataset, get_split_data
+from preprocess_data import make_dataset_file
 from engine import train_one_epoch, evaluate, prediction
 
 from utils import NativeScalerWithGradNormCount as NativeScaler
@@ -57,7 +59,7 @@ def get_args_parser():
     parser.add_argument('--model', default='convnext_base', type=str, metavar='MODEL',
                         help='Name of model to train')
     parser.add_argument('--drop_path', type=float, default=0.2, metavar='PCT',
-                        help='Drop path rate (default: 0.0)')
+                        help='Drop path rate (default: 0.2)')
     parser.add_argument('--input_size', default=224, type=int,
                         help='image input size')
     parser.add_argument('--layer_scale_init_value', default=1e-6, type=float,
@@ -254,6 +256,11 @@ def get_args_parser():
     parser.add_argument('--pred_save_with_conf', type=str2bool, default=False, help='Save prediction result with confidence')
     parser.add_argument('--eval_not_include_neg', type=str2bool, default=False, help='evaluation not include negative data')
     
+    parser.add_argument('--path_type', type=str2bool, required=True, default=False, help='Data input type is path')
+    parser.add_argument('--txt_type', type=str2bool, required=True, default=False, help='Data input type is txt file')
+    parser.add_argument('--train_txt_path', type=str, required=True, default="", help='Train Data Input Path')
+    parser.add_argument('--valid_txt_path', type=str, required=True, default="", help='Validation Data Input Path')
+
     return parser
 
 def main(args):
@@ -285,48 +292,90 @@ def main(args):
 
         # Evlaluation 실행 시
         elif args.eval:
-            sets = get_split_data(data_root=Path(args.eval_data_path), 
-                                  test_r=args.test_val_ratio[0], 
-                                  val_r=args.test_val_ratio[1], 
-                                  file_write=args.split_file_write,
-                                  label_list = args.label_list)
+            if args.path_type:
+                sets = get_split_data(data_root=Path(args.eval_data_path), 
+                                      test_r=args.test_val_ratio[0], 
+                                      val_r=args.test_val_ratio[1], 
+                                      file_write=args.split_file_write,
+                                      label_list = args.label_list)
 
-            dataset_val = PotholeDataset(
-                data_set=sets['test'], 
-                data_path=Path(args.eval_data_path), 
-                args=args, 
-                is_train=False) 
-            dataset_train = dataset_val
+                dataset_val = PotholeDataset(
+                    data_set=sets['test'], 
+                    data_path=Path(args.eval_data_path), 
+                    args=args, 
+                    is_train=False) 
+                dataset_train = dataset_val
+
+            elif args.txt_type:
+                if args.valid_txt_path == "":
+                    print("Please Check the valid_txt_path")
+                    sys.exit(1)
+
+                valid_data = make_dataset_file(args.valid_txt_path)
+                dataset_val = PotholeDataset(
+                    data_set=valid_data,
+                    data_path=Path(args.eval_data_path),
+                    args=args,
+                    is_train=False)
+                dataset_train = dataset_val
              
         # Train 실행 시
         else:
-            tr=[]
-            vr=[]
-            for path in args.data_path:
-                settmp = get_split_data(data_root=Path(path), 
-                                    test_r=args.test_val_ratio[0], 
-                                    val_r=args.test_val_ratio[1], 
-                                    file_write=args.split_file_write,
-                                    label_list = args.label_list)
-                tr = tr + settmp['train']
-                vr = vr + settmp['val']
-            sets = dict(train=tr, val=vr)
-            dataset_train = PotholeDataset(
-                data_set=sets['train'], 
-                args=args)
-            dataset_val = PotholeDataset(
-                data_set=sets['val'], 
-                args=args, 
-                is_train=False) 
+            if args.path_type:
+                tr=[]
+                vr=[]
+                for path in args.data_path:
+                    settmp = get_split_data(data_root=Path(path), 
+                                        test_r=args.test_val_ratio[0], 
+                                        val_r=args.test_val_ratio[1], 
+                                        file_write=args.split_file_write,
+                                        label_list = args.label_list)
+                    tr = tr + settmp['train']
+                    vr = vr + settmp['val']
+                sets = dict(train=tr, val=vr)
+
+                dataset_train = PotholeDataset(
+                    data_set=sets['train'], 
+                    args=args)
+                dataset_val = PotholeDataset(
+                    data_set=sets['val'], 
+                    args=args, 
+                    is_train=False) 
             
-            with open(Path(args.output_dir)/'valid.txt', 'w') as f:
-                for i in sets['val']:
-                    val_path = os.path.join(i.data_set, i.image_path)
-                    if not os.path.exists(val_path):
-                        print(val_path, "is not exists")
-                    else:
-                        f.write(val_path+'\n')
-            
+                with open(Path(args.output_dir)/'train.txt', 'w') as f:
+                    for i in sets['train']:
+                        val_path = os.path.join(i.data_set, i.image_path)
+                        if not os.path.exists(val_path):
+                            print(val_path, "is not exists")
+                        else:
+                            f.write(val_path+'\n')
+                
+                with open(Path(args.output_dir)/'valid.txt', 'w') as f:
+                    for i in sets['val']:
+                        val_path = os.path.join(i.data_set, i.image_path)
+                        if not os.path.exists(val_path):
+                            print(val_path, "is not exists")
+                        else:
+                            f.write(val_path+'\n')
+
+            elif args.txt_type:
+                if args.train_txt_path == "":
+                    print("Please Check the train_txt_path")
+                    sys.exit(1)
+                if args.valid_txt_path == "":
+                    print("Please Check the valid_txt_path")
+                    sys.exit(1)
+                
+                train_data = make_dataset_file(args.train_txt_path)
+                valid_data = make_dataset_file(args.valid_txt_path)
+
+                dataset_train = PotholeDataset(
+                    data_set=train_data,  # 그냥 RawData 리스트를 주면 됨.
+                    args=args)
+                dataset_val = PotholeDataset(
+                    data_set=valid_data,
+                    args=args,
+                    is_train=False)
     
         # Data 수량 확인
         s=num_cl_tr=num_cl_vl=''
@@ -334,6 +383,7 @@ def main(args):
             s = s + '   ' + cl
             num_cl_tr = num_cl_tr + '       ' + str(len([i for i in dataset_train.input_set[3] if i==cl]))
             num_cl_vl = num_cl_vl + '       ' + str(len([i for i in dataset_val.input_set[3] if i==cl]))
+        print("----------------------------------------------\ndata count after upsampling")
         print(s)
         print(num_cl_tr)
         print(num_cl_vl)
@@ -452,7 +502,7 @@ def main(args):
     model_without_ddp = model 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    print("Model = %s" % str(model_without_ddp))
+    # print("Model = %s" % str(model_without_ddp))
     print('number of params:', n_parameters)
 
     total_batch_size = args.batch_size * args.update_freq * utils.get_world_size()
@@ -533,6 +583,7 @@ def main(args):
     if args.model_ema and args.model_ema_eval:
         max_accuracy_ema = 0.0
 
+    ## 학습 시작
     print("Start training for %d epochs" % args.epochs)
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -555,7 +606,7 @@ def main(args):
                 utils.save_model(
                     args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch=epoch, model_ema=model_ema)
-                
+    
         if train_stats["loss"] < min_loss:
             min_loss = train_stats["loss"]
             if args.output_dir and args.save_ckpt:
@@ -563,7 +614,7 @@ def main(args):
                     args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch="train_min_loss", model_ema=model_ema)
                 torch.save(model.state_dict(), Path(args.output_dir) /'checkpoint-train_min_loss_weights.pth')
-                
+    
         if data_loader_val is not None:
             test_stats = evaluate(data_loader_val, model, device, criterion=criterion, use_amp=args.use_amp, use_softlabel=args.use_softlabel)
             print(f"Accuracy of the model on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
@@ -574,7 +625,7 @@ def main(args):
                         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                         loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
                     torch.save(model.state_dict(), Path(args.output_dir) / 'checkpoint-best_weights.pth')
-
+    
             if test_stats["loss"] < val_loss:
                 val_loss = test_stats["loss"]
                 if args.output_dir and args.save_ckpt:
@@ -582,19 +633,19 @@ def main(args):
                         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                         loss_scaler=loss_scaler, epoch="valid_min_loss", model_ema=model_ema)
                     torch.save(model.state_dict(), Path(args.output_dir) /'checkpoint-valid_min_loss_weights.pth')
-                    
+    
             print(f'Max accuracy: {max_accuracy:.2f}%\n\n')
-
+    
             if log_writer is not None:
                 log_writer.update(test_acc1=test_stats['acc1'], head="perf", step=epoch)
                 log_writer.update(test_acc2=test_stats['acc2'], head="perf", step=epoch)
                 log_writer.update(test_loss=test_stats['loss'], head="perf", step=epoch)
-
+    
             log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                          **{f'test_{k}': v for k, v in test_stats.items()},
                          'epoch': epoch,
                          'n_parameters': n_parameters}
-
+    
             # repeat testing routines for EMA, if ema eval is turned on
             if args.model_ema and args.model_ema_eval:
                 test_stats_ema = evaluate(data_loader_val, model_ema.ema, device, use_amp=args.use_amp, use_softlabel=args.use_softlabel)
@@ -613,19 +664,19 @@ def main(args):
             log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                          'epoch': epoch,
                          'n_parameters': n_parameters}
-
+    
         if args.output_dir and utils.is_main_process():
             if log_writer is not None:
                 log_writer.flush()
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
-
+    
         if wandb_logger:
             wandb_logger.log_epoch_metrics(log_stats)
-
+    
     if wandb_logger and args.wandb_ckpt and args.save_ckpt and args.output_dir:
         wandb_logger.log_checkpoints()
-
+    
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))

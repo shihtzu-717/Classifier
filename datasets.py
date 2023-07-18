@@ -169,7 +169,7 @@ class PotholeDataset(Dataset):
                 crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
             pil_image=Image.fromarray(crop_img)
 
-            # for i in range(self.upsample[v.class_id]):
+            # for i in range(self.upsample[v.class_id]):    #여기 주석처리 되어 있어서--upsample은 안쓰는 args.
             img_list.append(pil_image)
             label_list.append(v.label)
             img_path.append(str(image_path))
@@ -177,16 +177,32 @@ class PotholeDataset(Dataset):
 
         self.classes = list(np.sort(np.unique(label_list)))
         self.class_to_idx = {string : i for i, string in enumerate(self.classes)}
-        
+
+        # print(self.classes) # ['amb_neg', 'amb_pos', 'negative', 'positive']
+        # print(self.class_to_idx) # {'amb_neg': 0, 'amb_pos': 1, 'negative': 2, 'positive': 3}
+
         # Data upsample to 1:1:1:1 --> label 및 train, val, testset을 일정 비율로 upsample
-        clcnt = [label_list.count(i) for i in self.classes]
+        clcnt = [label_list.count(i) for i in self.classes] # 각 클래스 별 bbox 개수
+        print("data count before upsampling")
+        s = num_cl = ''
+        for idx, cl in enumerate(self.classes):
+            s = s + '   ' + cl
+            num_cl = num_cl + '       ' + str(clcnt[idx])
+        print(s)
+        print(num_cl)
         for j, cl in enumerate(self.classes):
             idx = [i for i, k in enumerate(label_list) if k==cl]
             img_list.extend([img_list[kk] for kk in idx]*(round(max(clcnt)/clcnt[j])-1))
             label_list.extend([label_list[kk] for kk in idx]*(round(max(clcnt)/clcnt[j])-1))
             img_path.extend([img_path[kk] for kk in idx]*(round(max(clcnt)/clcnt[j])-1))
             img_bbox.extend([img_bbox[kk] for kk in idx]*(round(max(clcnt)/clcnt[j])-1))
-        
+            # print(clcnt, max(clcnt), clcnt[j], (round(max(clcnt) / clcnt[j]) - 1))
+            # [175, 90, 273, 34] 273 175 1
+            # [175, 90, 273, 34] 273 90 2
+            # [175, 90, 273, 34] 273 273 0
+            # [175, 90, 273, 34] 273 34 7
+
+
         self.input_set = (img_list, img_path, img_bbox, label_list)
         self.length = len(img_list)
 
@@ -204,7 +220,7 @@ class PotholeDataset(Dataset):
 
 
 if __name__ == "__main__":
-    data_root = Path('/home/daree/data/pothole_data/raw')
+    data_root = Path('../nasdata/set_test')
     sets = preprocess_data.split_data(data_root, 0.1, 0.1, ['positive', 'negative'], file_write=False)
     trainset = PotholeDataset(data_set=sets['train'], args=None, data_path=data_root)
     dataloader = DataLoader(trainset, batch_size=2, shuffle=True)

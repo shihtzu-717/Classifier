@@ -115,6 +115,13 @@ def find_image(anno):
             return image
     raise Exception(f'image not found: {anno}')
 
+def find_annotation(img):
+    annot = Path(img)
+    annot = annot.with_suffix('.txt')
+    if annot.exists():
+        return annot
+    raise Exception(f'image not found: {img}')
+
 def read_annotation(annotation):
     with annotation.open('r', encoding='utf-8') as rf:
         for line_idx, line in enumerate(rf.readlines()):
@@ -125,6 +132,27 @@ def read_annotation(annotation):
             class_id = int(data[0])
             bbox = [float(v) for v in data[1:5]]
             yield line_idx, class_id, bbox
+
+def make_dataset_file(dataset_file):
+    data_list = []
+    with open(dataset_file, 'r') as rf:
+        files = [i.strip() for i in rf.readlines()]
+    for image_path in files:
+        data_root = '/'.join(image_path.split('/')[:-3])
+        annot_path = image_path.replace('images', 'annotations')
+        annot_path = find_annotation(annot_path)
+        image_path = Path(image_path)
+        image_path = Path(image_path)
+        image_path = image_path.relative_to(data_root)
+
+        for line_idx, class_id, bbox in read_annotation(annot_path):
+            label = annot_path.parts[-3]
+            raw_data = RawData(
+                data_root, label, image_path,
+                line_idx, class_id, bbox
+            )
+            data_list.append(raw_data)
+    return data_list
 
 def make_list(data_root, label_list=None, split_info=None):
     data_list = defaultdict(list)

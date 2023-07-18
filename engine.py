@@ -274,9 +274,11 @@ def evaluate(data_loader, model, device, criterion=torch.nn.CrossEntropyLoss(), 
 
 @torch.no_grad()
 def prediction(args, device):
+    import sys
+    import random
+    from preprocess_data import make_dataset_file
     from datasets import PotholeDataset, get_split_data
     from sklearn.metrics import precision_score , recall_score , confusion_matrix, ConfusionMatrixDisplay, classification_report
-    import random
 
     imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
     mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
@@ -309,14 +311,21 @@ def prediction(args, device):
     #                               file_write=args.split_file_write,
     #                               label_list = args.label_list) 
     # data_list = sets['test'] if len(sets['test']) > 0 else sets['val']
-
-    for path in args.eval_data_path:
-        settmp = get_split_data(data_root=Path(path), 
-                                    test_r=args.test_val_ratio[0], 
-                                    val_r=args.test_val_ratio[1], 
+    if args.path_type:
+        for path in args.eval_data_path:
+            settmp = get_split_data(data_root=Path(path),
+                                    test_r=args.test_val_ratio[0],
+                                    val_r=args.test_val_ratio[1],
                                     file_write=args.split_file_write,
-                                    label_list = args.label_list)
-        data_list += settmp['val']
+                                    label_list=args.label_list)
+            data_list += settmp['val']
+            
+    elif args.txt_type:
+        if args.valid_txt_path == "":
+            print("Please Check the valid_txt_path")
+            sys.exit(1)
+        data_list = make_dataset_file(args.valid_txt_path)
+
         
     random.shuffle(data_list)  # Data list shuffle
     tonorm = transforms.Normalize(mean, std)  # Transform 생성

@@ -22,30 +22,53 @@ padding = ['PIXEL']
 padding_size = [100]
 use_bbox = ['False']
 use_shift = ['True']
-soft_label_ratio = [0.7]
-target_label_ratio = [0.95]
+# soft_label_ratio = [0.7]
+# target_label_ratio = [0.95]
+
+soft_label_ratio = [1.0]
+target_label_ratio = [1.0]
 nb_classes = [2]
 soft_type = [1, 2]
 
 
-base = """CUDA_VISIBLE_DEVICES=0 python main.py \
+# base = """CUDA_VISIBLE_DEVICES=2 python main.py \
+#             --model convnext_base --drop_path 0.2 --input_size 224 \
+#             --batch_size 256 --lr 5e-5 --update_freq 2 \
+#             --epochs 200 --warmup_epochs 20 --weight_decay 1e-8 \
+#             --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
+#             --finetune checkpoint/convnext_base_22k_224.pth \
+#             --data_path '/home/daree/nasdata/trainset/01st_data' \
+#                 '/home/daree/nasdata/trainset/02nd_data' \
+#                 '/home/daree/nasdata/trainset/03rd_data' \
+#                 '/home/daree/nasdata/trainset/04th_data' \
+#                 '/home/daree/nasdata/trainset/05th_data' \
+#                 '/home/daree/nasdata/trainset/06th_data' \
+#                 '/home/daree/nasdata/trainset/07th_data' \
+#                 '/home/daree/nasdata/trainset/08th_data' \
+#                 '/home/daree/nasdata/trainset/09th_data' \
+#                 '/home/daree/nasdata/trainset/10th_data' \
+#                 '/home/daree/nasdata/trainset/11th_data' \
+#                 '/home/daree/nasdata/trainset/12th_data' \
+#             --model_ema false --model_ema_eval false \
+#             --data_set image_folder \
+#             --use_cropimg=False \
+#             --auto_resume=False \
+#             --test_val_ratio 0.0 0.2 \
+#             --split_file_write=False \
+#             --use_cropimg False \
+#             --save_ckpt True \
+#             --lossfn BCE \
+#             --use_class 0"""
+
+base = """CUDA_VISIBLE_DEVICES=2 python main.py \
             --model convnext_base --drop_path 0.2 --input_size 224 \
             --batch_size 256 --lr 5e-5 --update_freq 2 \
             --epochs 200 --warmup_epochs 20 --weight_decay 1e-8 \
             --layer_decay 0.8 --head_init_scale 0.001 --cutmix 0 --mixup 0 \
             --finetune checkpoint/convnext_base_22k_224.pth \
-            --data_path '/home/daree/nasdata/trainset/01st_data' \
-                '/home/daree/nasdata/trainset/02nd_data' \
-                '/home/daree/nasdata/trainset/03rd_data' \
-                '/home/daree/nasdata/trainset/04th_data' \
-                '/home/daree/nasdata/trainset/05th_data' \
-                '/home/daree/nasdata/trainset/06th_data' \
-                '/home/daree/nasdata/trainset/07th_data' \
-                '/home/daree/nasdata/trainset/08th_data' \
-                '/home/daree/nasdata/trainset/09th_data' \
-                '/home/daree/nasdata/trainset/10th_data' \
-                '/home/daree/nasdata/trainset/11th_data' \
-                '/home/daree/nasdata/trainset/12th_data' \
+            --path_type false --txt_type true \
+            --train_txt_path results/230710_set1-12/2-class/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.7_tratio_0.95_nbclss_2_9/train.txt \
+            --valid_txt_path results/230710_set1-12/2-class/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.7_tratio_0.95_nbclss_2_9/valid.txt \
             --model_ema false --model_ema_eval false \
             --data_set image_folder \
             --use_cropimg=False \
@@ -56,7 +79,6 @@ base = """CUDA_VISIBLE_DEVICES=0 python main.py \
             --save_ckpt True \
             --lossfn BCE \
             --use_class 0"""
-
 # org_output_dir_name = "after_set1-3"
 org_output_dir_name = "230710_set1-12"
 
@@ -74,7 +96,7 @@ for pad in padding:
                         for ncls in nb_classes:
                             for st in soft_type: 
                                 use_softlabel = True if ncls == 2 else False
-                                name = f'pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}_10'
+                                name = f'pad_{pad}_padsize_{pad_size:.1f}_box_{bbox}_shift_{shift}_sratio_{soft_ratio}_tratio_{target_ratio}_nbclss_{ncls}_3'
                                 output_dir_name = org_output_dir_name
                                 if ncls == 4:
                                     name += f'_soft-type_{st}'
