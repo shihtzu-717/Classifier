@@ -93,10 +93,11 @@ base = """CUDA_VISIBLE_DEVICES=2 python main.py \
             --use_class 0 \
             --pred_eval True \
             --pred True \
-            --eval_data_path ../nasdata/230710_pothole_positive \
+            --path_type true --txt_type false \
+            --eval_data_path ../nasdata/seoul_positive_testset \
             --pred_save True \
-            --pred_save_path ../res/230704_set1-12_data/2-class_nosoft/best_model/230710_pothole_positive \
-            --pred_save_with_conf True """
+            --pred_save_path ../res/230710_set1-12_data/best_model/seoul_positive_testset \
+            --pred_save_with_conf False """
 
 # --pred_save True \
 # --pred_save_path ../output/230601-set1-3/4to2-class-soft_type-1/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.9_tratio_0.95_nbclss_4_soft-type_1/230710_pothole_positive \
@@ -110,18 +111,18 @@ base = """CUDA_VISIBLE_DEVICES=2 python main.py \
 
 # graph_save_dir = "230704_set1-12/2-class/best_loss/230711_total_testset"
 # graph_save_dir = "230601_set1-3/2-class/230711_total_testset"
-graph_save_dir = "../res/230704_set1-12_graph/2-class_nosoft/best_model/230710_pothole_positive"
+graph_save_dir = "../res/230710_set1-12_graph/best_model/seoul_positive_testset"
 if not os.path.exists(graph_save_dir):
     os.makedirs(Path(graph_save_dir), exist_ok=True)
 
 # nb_classes가 2이면 --use_softlabel=True
 # nb_classes가 4이면 --use_softlabel=False
 # 4to2-class 계산은 --nb_classes=4에 --use_softlabel=True
-
+models = glob.glob('results/230710_set1-12/2-class/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.7_tratio_0.95_nbclss_2_3/checkpoint-best.pth')
 # models = glob.glob('results/after_set1-3/2-class/*/checkpoint-train_min_loss.pth')
 # models = glob.glob('results/230704_set1-12/2-class/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_1_tratio_1_nbclss_2/checkpoint-best.pth')
 # models = glob.glob('results/230704_set1-12/2-class/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_1_tratio_1_nbclss_2/checkpoint-train_min_loss.pth')
-models = glob.glob('results/230704_set1-12/2-class/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.7_tratio_0.95_nbclss_2/checkpoint-best.pth')
+# models = glob.glob('results/230704_set1-12/2-class/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.7_tratio_0.95_nbclss_2/checkpoint-best.pth')
 # models = glob.glob('results/230704_set1-12/4-class-soft_type-1/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.9_tratio_0.95_nbclss_4_soft-type_1_neg+amb_neg/checkpoint-best.pth')
 # models = glob.glob('results/230704_set1-12/4-class-soft_type-1/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.9_tratio_0.95_nbclss_4_soft-type_1_neg+amb_neg/checkpoint-train_min_loss.pth')
 # models = glob.glob('results/230601_set1-3/pad_PIXEL_padsize_100.0_box_False_shift_True_sratio_0.7_tratio_0.95_nbclss_2/checkpoint-best.pth')

@@ -136,8 +136,8 @@ def read_annotation(annotation):
 def make_dataset_file(dataset_file):
     data_list = []
     with open(dataset_file, 'r') as rf:
-        files = [i.strip() for i in rf.readlines()]
-    for image_path in files:
+        data_lines = [i.strip() for i in rf.readlines()]
+    for image_path in data_lines:
         data_root = '/'.join(image_path.split('/')[:-3])
         annot_path = image_path.replace('images', 'annotations')
         annot_path = find_annotation(annot_path)

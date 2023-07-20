@@ -160,10 +160,7 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default=['/home/daree/nasdata/ambclass/1st_data',
-                                                '/home/daree/nasdata/ambclass/2nd_data',
-                                                '/home/daree/nasdata/ambclass/3rd_data'], nargs='+', type=str,
-                        help='dataset path')
+    parser.add_argument('--data_path', default=[], nargs='+', type=str, help='dataset path')
     parser.add_argument('--eval_data_path', type=str, nargs='+', help='dataset path for evaluation')
     parser.add_argument('--nb_classes', default=4, type=int,
                         help='number of the classification types')
@@ -258,8 +255,8 @@ def get_args_parser():
     
     parser.add_argument('--path_type', type=str2bool, required=True, default=False, help='Data input type is path')
     parser.add_argument('--txt_type', type=str2bool, required=True, default=False, help='Data input type is txt file')
-    parser.add_argument('--train_txt_path', type=str, required=True, default="", help='Train Data Input Path')
-    parser.add_argument('--valid_txt_path', type=str, required=True, default="", help='Validation Data Input Path')
+    parser.add_argument('--train_txt_path', type=str, default="", help='Train Data Input Path')
+    parser.add_argument('--valid_txt_path', type=str, default="", help='Validation Data Input Path')
 
     return parser
 
@@ -341,22 +338,28 @@ def main(args):
                     data_set=sets['val'], 
                     args=args, 
                     is_train=False) 
-            
-                with open(Path(args.output_dir)/'train.txt', 'w') as f:
-                    for i in sets['train']:
-                        val_path = os.path.join(i.data_set, i.image_path)
-                        if not os.path.exists(val_path):
-                            print(val_path, "is not exists")
-                        else:
-                            f.write(val_path+'\n')
                 
+                train_set = set()
+                for i in sets['train']:
+                    train_path = os.path.join(i.data_set, i.image_path)
+                    if not os.path.exists(train_path):
+                        print(train_path, "is not exists")
+                    else:
+                        train_set.add(train_path+'\n')
+                
+                val_set = set()
+                for i in sets['val']:
+                    val_path = os.path.join(i.data_set, i.image_path)
+                    if not os.path.exists(val_path):
+                        print(val_path, "is not exists")
+                    else:
+                        val_set.add(val_path+'\n')
+                
+                with open(Path(args.output_dir)/'train.txt', 'w') as f:
+                    f.writelines(train_set)
+
                 with open(Path(args.output_dir)/'valid.txt', 'w') as f:
-                    for i in sets['val']:
-                        val_path = os.path.join(i.data_set, i.image_path)
-                        if not os.path.exists(val_path):
-                            print(val_path, "is not exists")
-                        else:
-                            f.write(val_path+'\n')
+                    f.writelines(val_set)
 
             elif args.txt_type:
                 if args.train_txt_path == "":
@@ -368,6 +371,8 @@ def main(args):
                 
                 train_data = make_dataset_file(args.train_txt_path)
                 valid_data = make_dataset_file(args.valid_txt_path)
+                print(len(train_data))
+                print(len(valid_data))
 
                 dataset_train = PotholeDataset(
                     data_set=train_data,  # 그냥 RawData 리스트를 주면 됨.
