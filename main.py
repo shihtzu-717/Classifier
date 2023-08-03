@@ -25,7 +25,7 @@ from timm.utils import ModelEma
 from optim_factory import create_optimizer, LayerDecayValueAssigner
 
 from datasets import build_dataset, PotholeDataset, get_split_data
-from preprocess_data import make_dataset_file
+from preprocess_data import make_dataset_file, make_crop_dataset_file
 from engine import train_one_epoch, evaluate, prediction
 
 from utils import NativeScalerWithGradNormCount as NativeScaler
@@ -135,8 +135,8 @@ def get_args_parser():
     parser.add_argument('--cutmix', type=float, default=0.0,
                         help='cutmix alpha, cutmix enabled if > 0.')
     parser.add_argument('--use_softlabel', type=str2bool, default=False,
-                        help='Softlabel using 2classes output for 4classes input. ')
-
+                        help='Softlabel using 2classes output for 4classes input.')
+    
     parser.add_argument('--four_to_three', type=str2bool, default=False,
                         help='evaluation 4-class to 3-class')
     
@@ -264,8 +264,11 @@ def main(args):
     utils.init_distributed_mode(args)
     
     print(args)
-    device = torch.device(args.device)
+    with open(Path(args.output_dir)/'args.txt', 'w') as f:
+        f.write(str(args))
 
+    device = torch.device(args.device)
+    
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
@@ -273,114 +276,226 @@ def main(args):
     cudnn.benchmark = True
 
     ## Data Set Load 
-    if args.use_cropimg: # crop된 이미지 사용
-        dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
-        if args.disable_eval:
-            args.dist_eval = False
-            dataset_val = None
-        else:
-            dataset_val, _ = build_dataset(is_train=False, args=args)
+    # if args.use_cropimg: # crop된 이미지 사용
+    #     dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
+    #     if args.disable_eval:
+    #         args.dist_eval = False
+    #         dataset_val = None
+    #     else:
+    #         dataset_val, _ = build_dataset(is_train=False, args=args)
 
-    else:
-        # Prediction 실행 시
-        if args.pred:
-            prediction(args, device)
-            return
+    # else:
+        # # Prediction 실행 시
+        # if args.pred:
+        #     prediction(args, device)
+        #     return
 
-        # Evlaluation 실행 시
-        elif args.eval:
-            if args.path_type:
-                sets = get_split_data(data_root=Path(args.eval_data_path), 
-                                      test_r=args.test_val_ratio[0], 
-                                      val_r=args.test_val_ratio[1], 
-                                      file_write=args.split_file_write,
-                                      label_list = args.label_list)
+        # # Evlaluation 실행 시
+        # elif args.eval:
+        #     if args.path_type:
+        #         sets = get_split_data(data_root=Path(args.eval_data_path), 
+        #                               test_r=args.test_val_ratio[0], 
+        #                               val_r=args.test_val_ratio[1], 
+        #                               file_write=args.split_file_write,
+        #                               label_list = args.label_list)
 
-                dataset_val = PotholeDataset(
-                    data_set=sets['test'], 
-                    data_path=Path(args.eval_data_path), 
-                    args=args, 
-                    is_train=False) 
-                dataset_train = dataset_val
+        #         dataset_val = PotholeDataset(
+        #             data_set=sets['test'], 
+        #             data_path=Path(args.eval_data_path), 
+        #             args=args, 
+        #             is_train=False) 
+        #         dataset_train = dataset_val
 
-            elif args.txt_type:
-                if args.valid_txt_path == "":
-                    print("Please Check the valid_txt_path")
-                    sys.exit(1)
+        #     elif args.txt_type:
+        #         if args.valid_txt_path == "":
+        #             print("Please Check the valid_txt_path")
+        #             sys.exit(1)
 
-                valid_data = make_dataset_file(args.valid_txt_path)
-                dataset_val = PotholeDataset(
-                    data_set=valid_data,
-                    data_path=Path(args.eval_data_path),
-                    args=args,
-                    is_train=False)
-                dataset_train = dataset_val
+        #         valid_data = make_dataset_file(args.valid_txt_path)
+        #         dataset_val = PotholeDataset(
+        #             data_set=valid_data,
+        #             data_path=Path(args.eval_data_path),
+        #             args=args,
+        #             is_train=False)
+        #         dataset_train = dataset_val
              
-        # Train 실행 시
-        else:
-            if args.path_type:
-                tr=[]
-                vr=[]
-                for path in args.data_path:
-                    settmp = get_split_data(data_root=Path(path), 
+        # # Train 실행 시
+        # else:
+        #     if args.path_type:
+        #         tr=[]
+        #         vr=[]
+        #         for path in args.data_path:
+        #             settmp = get_split_data(data_root=Path(path), 
+        #                                 test_r=args.test_val_ratio[0], 
+        #                                 val_r=args.test_val_ratio[1], 
+        #                                 file_write=args.split_file_write,
+        #                                 label_list = args.label_list)
+        #             tr = tr + settmp['train']
+        #             vr = vr + settmp['val']
+        #         sets = dict(train=tr, val=vr)
+
+        #         dataset_train = PotholeDataset(
+        #             data_set=sets['train'], 
+        #             args=args)
+        #         dataset_val = PotholeDataset(
+        #             data_set=sets['val'], 
+        #             args=args, 
+        #             is_train=False) 
+                
+        #         train_set = set()
+        #         for i in sets['train']:
+        #             train_path = os.path.join(i.data_set, i.image_path)
+        #             if not os.path.exists(train_path):
+        #                 print(train_path, "is not exists")
+        #             else:
+        #                 train_set.add(train_path+'\n')
+                
+        #         val_set = set()
+        #         for i in sets['val']:
+        #             val_path = os.path.join(i.data_set, i.image_path)
+        #             if not os.path.exists(val_path):
+        #                 print(val_path, "is not exists")
+        #             else:
+        #                 val_set.add(val_path+'\n')
+                
+        #         with open(Path(args.output_dir)/'train.txt', 'w') as f:
+        #             f.writelines(train_set)
+
+        #         with open(Path(args.output_dir)/'valid.txt', 'w') as f:
+        #             f.writelines(val_set)
+
+        #     elif args.txt_type:
+        #         if args.train_txt_path == "":
+        #             print("Please Check the train_txt_path")
+        #             sys.exit(1)
+        #         if args.valid_txt_path == "":
+        #             print("Please Check the valid_txt_path")
+        #             sys.exit(1)
+                
+        #         train_data = make_dataset_file(args.train_txt_path)
+        #         valid_data = make_dataset_file(args.valid_txt_path)
+        #         # print(len(train_data))
+        #         # print(len(valid_data))
+
+        #         dataset_train = PotholeDataset(
+        #             data_set=train_data,  # 그냥 RawData 리스트를 주면 됨.
+        #             args=args)
+        #         dataset_val = PotholeDataset(
+        #             data_set=valid_data,
+        #             args=args,
+        #             is_train=False)
+    
+        # # Data 수량 확인
+        # s=num_cl_tr=num_cl_vl=''
+        # for cl in dataset_train.classes:
+        #     s = s + '   ' + cl
+        #     num_cl_tr = num_cl_tr + '       ' + str(len([i for i in dataset_train.input_set[3] if i==cl]))
+        #     num_cl_vl = num_cl_vl + '       ' + str(len([i for i in dataset_val.input_set[3] if i==cl]))
+        # print("----------------------------------------------\ndata count after upsampling")
+        # print(s)
+        # print(num_cl_tr)
+        # print(num_cl_vl)
+    
+    # Prediction 실행 시
+    if args.pred:
+        prediction(args, device)
+        return
+
+    # Evlaluation 실행 시
+    elif args.eval:
+        if args.path_type:
+            sets = get_split_data(data_root=Path(args.eval_data_path), 
+                                  test_r=args.test_val_ratio[0], 
+                                  val_r=args.test_val_ratio[1], 
+                                  file_write=args.split_file_write,
+                                  label_list = args.label_list)
+            dataset_val = PotholeDataset(
+                data_set=sets['test'], 
+                data_path=Path(args.eval_data_path), 
+                args=args, 
+                is_train=False) 
+            dataset_train = dataset_val
+        elif args.txt_type:
+            if args.valid_txt_path == "":
+                print("Please Check the valid_txt_path")
+                sys.exit(1)
+
+            valid_data = make_dataset_file(args.valid_txt_path)
+            dataset_val = PotholeDataset(
+                data_set=valid_data,
+                data_path=Path(args.eval_data_path),
+                args=args,
+                is_train=False)
+            dataset_train = dataset_val
+         
+    # Train 실행 시
+    else:
+        if args.path_type:
+            tr=[]
+            vr=[]
+            for path in args.data_path:
+                settmp = get_split_data(data_root=Path(path), 
                                         test_r=args.test_val_ratio[0], 
                                         val_r=args.test_val_ratio[1], 
                                         file_write=args.split_file_write,
-                                        label_list = args.label_list)
-                    tr = tr + settmp['train']
-                    vr = vr + settmp['val']
-                sets = dict(train=tr, val=vr)
+                                        label_list = args.label_list, 
+                                        use_cropimg = args.use_cropimg)
+                tr = tr + settmp['train']
+                vr = vr + settmp['val']
+            sets = dict(train=tr, val=vr)
+            dataset_train = PotholeDataset(
+                data_set=sets['train'], 
+                args=args)
+            dataset_val = PotholeDataset(
+                data_set=sets['val'], 
+                args=args, 
+                is_train=False) 
+            
+            train_set = set()
+            for i in sets['train']:
+                train_path = os.path.join(i.data_set, i.image_path)
+                if not os.path.exists(train_path):
+                    print(train_path, "is not exists")
+                else:
+                    train_set.add(train_path+'\n')
+            
+            val_set = set()
+            for i in sets['val']:
+                val_path = os.path.join(i.data_set, i.image_path)
+                if not os.path.exists(val_path):
+                    print(val_path, "is not exists")
+                else:
+                    val_set.add(val_path+'\n')
+            
+            with open(Path(args.output_dir)/'train.txt', 'w') as f:
+                f.writelines(train_set)
+            with open(Path(args.output_dir)/'valid.txt', 'w') as f:
+                f.writelines(val_set)
 
-                dataset_train = PotholeDataset(
-                    data_set=sets['train'], 
-                    args=args)
-                dataset_val = PotholeDataset(
-                    data_set=sets['val'], 
-                    args=args, 
-                    is_train=False) 
-                
-                train_set = set()
-                for i in sets['train']:
-                    train_path = os.path.join(i.data_set, i.image_path)
-                    if not os.path.exists(train_path):
-                        print(train_path, "is not exists")
-                    else:
-                        train_set.add(train_path+'\n')
-                
-                val_set = set()
-                for i in sets['val']:
-                    val_path = os.path.join(i.data_set, i.image_path)
-                    if not os.path.exists(val_path):
-                        print(val_path, "is not exists")
-                    else:
-                        val_set.add(val_path+'\n')
-                
-                with open(Path(args.output_dir)/'train.txt', 'w') as f:
-                    f.writelines(train_set)
-
-                with open(Path(args.output_dir)/'valid.txt', 'w') as f:
-                    f.writelines(val_set)
-
-            elif args.txt_type:
-                if args.train_txt_path == "":
-                    print("Please Check the train_txt_path")
-                    sys.exit(1)
-                if args.valid_txt_path == "":
-                    print("Please Check the valid_txt_path")
-                    sys.exit(1)
-                
+        elif args.txt_type:
+            if args.train_txt_path == "":
+                print("Please Check the train_txt_path")
+                sys.exit(1)
+            if args.valid_txt_path == "":
+                print("Please Check the valid_txt_path")
+                sys.exit(1)
+            
+            if args.use_cropimg:
+                train_data = make_crop_dataset_file(args.train_txt_path)
+                valid_data = make_crop_dataset_file(args.valid_txt_path)
+            else:
                 train_data = make_dataset_file(args.train_txt_path)
                 valid_data = make_dataset_file(args.valid_txt_path)
-                print(len(train_data))
-                print(len(valid_data))
+            # print(len(train_data))
+            # print(len(valid_data))
 
-                dataset_train = PotholeDataset(
-                    data_set=train_data,  # 그냥 RawData 리스트를 주면 됨.
-                    args=args)
-                dataset_val = PotholeDataset(
-                    data_set=valid_data,
-                    args=args,
-                    is_train=False)
+            dataset_train = PotholeDataset(
+                data_set=train_data,  # 그냥 RawData 리스트를 주면 됨.
+                args=args)
+            dataset_val = PotholeDataset(
+                data_set=valid_data,
+                args=args,
+                is_train=False)
     
         # Data 수량 확인
         s=num_cl_tr=num_cl_vl=''

@@ -28,20 +28,21 @@ from pathlib import Path
 from torch import nn
 
 
-def create_images_with_conf(image_path, re, label, pred_save_path):
+def create_images_with_conf(image_path, re, label, pred_save_path, use_cropimg):
     background_color = (255, 255, 255)  # 흰색 배경
     width, height = 2560, 1440  # 배경의 가로와 세로 크기
     background = np.ones((height, width, 3), dtype=np.uint8) * background_color
 
     image = cv2.imread(image_path)
     ih, iw, ic = image.shape
-    x, y, w, h = float(re[4][0])*iw, float(re[4][1])*ih, float(re[4][2])*iw, float(re[4][3])*ih
-    x1 = int(round(x-w/2))
-    y1 = int(round(y-h/2))
-    x2 = int(round(x+w/2))
-    y2 = int(round(y+h/2))
-    c1, c2 = (x1, y1), (x2, y2)
-    cv2.rectangle(image, c1, c2, color=[0, 255, 255])
+    if not use_cropimg:
+        x, y, w, h = float(re[4][0])*iw, float(re[4][1])*ih, float(re[4][2])*iw, float(re[4][3])*ih
+        x1 = int(round(x-w/2))
+        y1 = int(round(y-h/2))
+        x2 = int(round(x+w/2))
+        y2 = int(round(y+h/2))
+        c1, c2 = (x1, y1), (x2, y2)
+        cv2.rectangle(image, c1, c2, color=[0, 255, 255])
 
     # 이미지 중앙 위치 계산
     bg_height, bg_width, _ = background.shape
@@ -85,6 +86,25 @@ def create_images_with_conf(image_path, re, label, pred_save_path):
     fn = (os.path.basename(image_path)).split('.')[0]+'_'+re[5]+'.jpg'
     output_path = str(Path(pred_save_path) / label / 'inference' / fn)
     cv2.imwrite(output_path, background)
+
+    if re[3] == label:
+        true_data_path = str(Path(pred_save_path) / label / 'true_data')
+        shutil.copy(image_path, os.path.join(true_data_path, 'images'))
+        annot_path = image_path.replace('images', 'annotations')
+        annot_path = annot_path.replace('.jpg', '.txt')
+        annot_path = annot_path.replace('.png', '.txt')
+        if not use_cropimg:
+            shutil.copy(annot_path, os.path.join(true_data_path, 'annotations'))
+        cv2.imwrite(os.path.join(true_data_path, 'inference', fn), background)
+    else:
+        false_data_path = str(Path(pred_save_path) / label / 'false_data')
+        shutil.copy(image_path, os.path.join(false_data_path, 'images'))
+        annot_path = image_path.replace('images', 'annotations')
+        annot_path = annot_path.replace('.jpg', '.txt')
+        annot_path = annot_path.replace('.png', '.txt')
+        if not use_cropimg:
+            shutil.copy(annot_path, os.path.join(false_data_path, 'annotations'))
+        cv2.imwrite(os.path.join(false_data_path, 'inference', fn), background)
 
 def softmax(x):
     exp_x = torch.exp(x - torch.max(x))
@@ -313,11 +333,12 @@ def prediction(args, device):
     # data_list = sets['test'] if len(sets['test']) > 0 else sets['val']
     if args.path_type:
         for path in args.eval_data_path:
-            settmp = get_split_data(data_root=Path(path),
-                                    test_r=args.test_val_ratio[0],
-                                    val_r=args.test_val_ratio[1],
+            settmp = get_split_data(data_root=Path(path), 
+                                    test_r=args.test_val_ratio[0], 
+                                    val_r=args.test_val_ratio[1], 
                                     file_write=args.split_file_write,
-                                    label_list=args.label_list)
+                                    label_list = args.label_list, 
+                                    use_cropimg = args.use_cropimg)
             data_list += settmp['val']
             
     elif args.txt_type:
@@ -334,15 +355,18 @@ def prediction(args, device):
     for data in tqdm(data_list, desc='Image Cropping... '):
         if data.class_id not in args.use_class:
             continue
-        crop_img = preprocess_data.crop_image(
-            image_path = data[0] / data.image_path, 
-            bbox = data.bbox, 
-            padding = args.padding, 
-            padding_size = args.padding_size, 
-            use_shift = args.use_shift, 
-            use_bbox = args.use_bbox, 
-            imsave = args.imsave
-        )
+        if args.use_cropimg:
+            crop_img = cv2.imread(str(data[0] / data.image_path))
+        else:
+            crop_img = preprocess_data.crop_image(
+                image_path = data[0] / data.image_path, 
+                bbox = data.bbox, 
+                padding = args.padding, 
+                padding_size = args.padding_size, 
+                use_shift = args.use_shift, 
+                use_bbox = args.use_bbox, 
+                imsave = args.imsave
+            )
 
         # File 이름에 label이 있는지 확인
         spltnm = str(data[1]).split('_')
@@ -398,8 +422,32 @@ def prediction(args, device):
             if args.use_softlabel == False and args.nb_classes == 4 : 
                 os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'inference', exist_ok=True)
                 os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'inference', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'true_data' / 'images', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'true_data' / 'annotations', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'true_data' / 'inference', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'false_data' / 'images', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'false_data' / 'annotations', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_neg' / 'false_data' / 'inference', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'true_data' / 'images', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'true_data' / 'annotations', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'true_data' / 'inference', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'false_data' / 'images', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'false_data' / 'annotations', exist_ok=True)
+                os.makedirs(Path(args.pred_save_path) /'amb_pos' / 'false_data' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'negative' / 'inference', exist_ok=True)
             os.makedirs(Path(args.pred_save_path) /'positive' / 'inference', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'negative' / 'true_data' / 'images', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'negative' / 'true_data' / 'annotations', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'negative' / 'true_data' / 'inference', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'negative' / 'false_data' / 'images', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'negative' / 'false_data' / 'annotations', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'negative' / 'false_data' / 'inference', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'positive' / 'true_data' / 'images', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'positive' / 'true_data' / 'annotations', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'positive' / 'true_data' / 'inference', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'positive' / 'false_data' / 'images', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'positive' / 'false_data' / 'annotations', exist_ok=True)
+            os.makedirs(Path(args.pred_save_path) /'positive' / 'false_data' / 'inference', exist_ok=True)
 
         if args.use_softlabel and args.nb_classes == 4:
             amb_neg = [(x[3], 'amb_neg', x[1], x[4], x[5], x[6]) for x in result if x[0]==0] + [(x[3], 'negative', x[1], x[4], x[5], x[6]) for x in result if x[0]==2]
@@ -424,15 +472,17 @@ def prediction(args, device):
             # shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
             if args.nb_classes == 2 or (args.use_softlabel and args.nb_classes == 4):
                 shutil.copy(an[0], Path(args.pred_save_path) /'negative' / 'images')
-                shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
+                if not args.use_cropimg:
+                    shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
             else:
                 shutil.copy(an[0], Path(args.pred_save_path) /'amb_neg' / 'images')
-                shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
+                if not args.use_cropimg:
+                    shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_neg' / 'annotations')
             if args.pred_save_with_conf:
                 if args.nb_classes == 2 or (args.use_softlabel and args.nb_classes == 4):
-                    create_images_with_conf(img_path, an, 'negative', args.pred_save_path)
+                    create_images_with_conf(img_path, an, 'negative', args.pred_save_path, args.use_cropimg)
                 else:
-                    create_images_with_conf(img_path, an, 'amb_neg', args.pred_save_path)
+                    create_images_with_conf(img_path, an, 'amb_neg', args.pred_save_path, args.use_cropimg)
                 # img_plt = plt.imread(img_path)
                 # plt.imshow(img_plt)
                 # # plt.axis('off')
@@ -464,17 +514,19 @@ def prediction(args, device):
             annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
             if args.nb_classes == 2 or (args.use_softlabel and args.nb_classes == 4):
                 shutil.copy(ap[0], Path(args.pred_save_path) / 'positive' / 'images')
-                shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
+                if not args.use_cropimg:
+                    shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
             else:
                 shutil.copy(ap[0], Path(args.pred_save_path) / 'amb_pos' / 'images')
-                shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
+                if not args.use_cropimg:
+                    shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
             # shutil.copy(ap[0], Path(args.pred_save_path) / 'amb_pos' / 'images')
             # shutil.copy(annot_path, Path(args.pred_save_path) / 'amb_pos' / 'annotations')
             if args.pred_save_with_conf:
                 if args.nb_classes == 2 or (args.use_softlabel and args.nb_classes == 4):
-                    create_images_with_conf(img_path, ap, 'positive', args.pred_save_path)
+                    create_images_with_conf(img_path, ap, 'positive', args.pred_save_path, args.use_cropimg)
                 else:
-                    create_images_with_conf(img_path, ap, 'amb_pos', args.pred_save_path)
+                    create_images_with_conf(img_path, ap, 'amb_pos', args.pred_save_path, args.use_cropimg)
                 # img_plt = plt.imread(img_path)
                 # plt.imshow(img_plt)
                 # # plt.axis('off')
@@ -506,9 +558,10 @@ def prediction(args, device):
                 n_conf = float(n[2])
                 annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
                 shutil.copy(n[0], Path(args.pred_save_path) /'negative' / 'images')
-                shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
+                if not args.use_cropimg:
+                    shutil.copy(annot_path, Path(args.pred_save_path) / 'negative' / 'annotations')
                 if args.pred_save_with_conf:
-                    create_images_with_conf(img_path, n, 'negative', args.pred_save_path)
+                    create_images_with_conf(img_path, n, 'negative', args.pred_save_path, args.use_cropimg)
                     # img_plt = plt.imread(img_path)
                     # plt.imshow(img_plt)
                     # # plt.axis('off')
@@ -539,9 +592,10 @@ def prediction(args, device):
                 p_conf = float(p[2])
                 annot_path = (img_path[:-3]+'txt').replace('images', 'annotations')
                 shutil.copy(p[0], Path(args.pred_save_path) / 'positive' / 'images')
-                shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
+                if not args.use_cropimg:
+                    shutil.copy(annot_path, Path(args.pred_save_path) / 'positive' / 'annotations')
                 if args.pred_save_with_conf:
-                    create_images_with_conf(img_path, p, 'positive', args.pred_save_path)
+                    create_images_with_conf(img_path, p, 'positive', args.pred_save_path, args.use_cropimg)
                     # img_plt = plt.imread(img_path)
                     # plt.imshow(img_plt)
                     # # plt.axis('off')
@@ -645,6 +699,7 @@ def prediction(args, device):
             with open(Path(args.pred_save_path)/"conf_avg.txt", "a") as f:
                 f.write('정밀도(Precision): {0:.4f}, 재현율(Recall): {1:.4f}\n'.format(precision, recall))
                 f.write(cls_report)
+                f.write('F1-score : {0:.4f}'.format(2 * (precision * recall) / (precision + recall)))
                 f.write(str(cm))
             print(cls_report)
             print('F1-score : {0:.4f}'.format(2 * (precision * recall) / (precision + recall)))

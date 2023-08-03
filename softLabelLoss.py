@@ -46,7 +46,6 @@ class softLabelLoss(nn.Module):
                     onehot[i][1] = self.label_ratio
 
                 
-                
         else:
             onehot = torch.zeros(len(target), 4).to(target.device)
             for i, t in enumerate(target):

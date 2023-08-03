@@ -1,0 +1,14 @@
+set1 - critical_data_set: 9, normal_image_set: 38
+set2 - critical_data_set: 33, normal_image_set: 52
+set3 - critical_data_set: 66, normal_image_set: 160
+set4 - critical_data_set: 21, normal_image_set: 65
+set5 - critical_data_set: 30, normal_image_set: 97
+set6 - critical_data_set: 37, normal_image_set: 75
+set7 - critical_data_set: 24, normal_image_set: 75
+set8 - critical_data_set: 35, normal_image_set: 40
+set9 - critical_data_set: 25, normal_image_set: 61
+set10 - critical_data_set: 23, normal_image_set: 75
+set11 - critical_data_set: 11, normal_image_set: 75
+set12 - critical_data_set: 20, normal_image_set: 40
+
+normal_cnt: 850, ciritical_cnt: 332

@@ -14,6 +14,7 @@ from collections import defaultdict, namedtuple
 from concurrent.futures import ProcessPoolExecutor
 
 RawData = namedtuple('RawData', 'data_set, label, image_path, idx, class_id, bbox')
+CropData = namedtuple('CropData', 'data_set, label, image_path')
 
 class Padding(Enum):
     BBOX = 'BBOX'
@@ -142,7 +143,6 @@ def make_dataset_file(dataset_file):
         annot_path = image_path.replace('images', 'annotations')
         annot_path = find_annotation(annot_path)
         image_path = Path(image_path)
-        image_path = Path(image_path)
         image_path = image_path.relative_to(data_root)
 
         for line_idx, class_id, bbox in read_annotation(annot_path):
@@ -152,6 +152,38 @@ def make_dataset_file(dataset_file):
                 line_idx, class_id, bbox
             )
             data_list.append(raw_data)
+    return data_list
+
+def make_crop_dataset_file(dataset_file):
+    data_list = []
+    with open(dataset_file, 'r') as rf:
+        data_lines = [i.strip() for i in rf.readlines()]
+    for image_path in data_lines:
+        data_root = '/'.join(image_path.split('/')[:-3])
+        image_path = Path(image_path)
+        image_path = image_path.relative_to(data_root)
+        label = image_path.parts[-3]
+        raw_data = RawData(data_root, label, image_path, 0, 0, [])
+        data_list.append(raw_data)
+    return data_list
+
+def make_crop_dataset_list(data_root, label_list=None, split_info=None):
+    data_list = defaultdict(list)
+    data_root = Path(data_root).resolve()
+    for image_path in split_info.keys():
+        image_path = Path(image_path)
+        label = image_path.parts[-3]
+        try:                
+            split_tag = split_info[image_path]
+        except:
+            print(f'{image_path} is not exist.')
+            continue
+        # print(data_root, label, image_path, split_tag)
+        # crop_data = CropData(data_root, label, image_path)
+        # data_list[split_tag].append(crop_data)
+        # RawData = namedtuple('RawData', 'data_set, label, image_path, idx, class_id, bbox')
+        raw_data = RawData(data_root, label, image_path, 0, 0, [])
+        data_list[split_tag].append(raw_data)
     return data_list
 
 def make_list(data_root, label_list=None, split_info=None):
@@ -220,24 +252,19 @@ def make_list(data_root, label_list=None, split_info=None):
                     print(f'{data_sub_root.name}\t{label}\t{class_id}\t{test_cnt}\t{val_cnt}\t{train_cnt}')
     return data_list
 
-def split_data(data_root, test_ratio, val_ratio, label_list=None, file_write=False):
+def split_data(data_root, test_ratio, val_ratio, label_list=None, file_write=False, use_cropimg=False):
     split_info_path = data_root / f'split_info_{test_ratio}_{val_ratio}'
     
     train_ratio = 1 - (test_ratio + val_ratio)
     split_population = 'test', 'val', 'train'
     split_weights = test_ratio, val_ratio, train_ratio
 
-    if split_info_path.exists():
-        print(f'load {split_info_path}')
-        with split_info_path.open('rb') as rf:
-            split_info = pickle.load(rf)
-    else:
+    if use_cropimg:
         split_info = []
         types = ('*.jpg', '*.jpeg', '*.png') # the tuple of file types
         for files in types:
             # glob("./**/*.jpg", recursive=True)
             split_info.extend(glob.glob(str(data_root/ '**' / files), recursive=True))
-            
         dict_val = []
         cls_lists = []
         for cls in os.listdir(data_root):
@@ -245,14 +272,35 @@ def split_data(data_root, test_ratio, val_ratio, label_list=None, file_write=Fal
             dict_val.extend([random.choices(split_population, split_weights)[0] for i in range(len(cls_list))])
             cls_lists.extend(cls_list)
         split_info = dict(zip(cls_lists, dict_val))
-        # split_info = defaultdict(lambda: random.choices(split_population, split_weights)[0], split_info)
+        data_list = make_crop_dataset_list(data_root, label_list, split_info)
 
-    data_list = make_list(data_root, label_list, split_info)
-    if file_write:
-        print(f'make {split_info_path}')
-        with split_info_path.open('wb') as wf:
-            split_info = dict(split_info)
-            pickle.dump(split_info, wf)
+    else:
+        if split_info_path.exists():
+            print(f'load {split_info_path}')
+            with split_info_path.open('rb') as rf:
+                split_info = pickle.load(rf)
+        else:
+            split_info = []
+            types = ('*.jpg', '*.jpeg', '*.png') # the tuple of file types
+            for files in types:
+                # glob("./**/*.jpg", recursive=True)
+                split_info.extend(glob.glob(str(data_root/ '**' / files), recursive=True))
+            
+            dict_val = []
+            cls_lists = []
+            for cls in os.listdir(data_root):
+                cls_list = [Path(i).relative_to(data_root) for i in split_info if Path(i).relative_to(data_root).parts[0]==cls]
+                dict_val.extend([random.choices(split_population, split_weights)[0] for i in range(len(cls_list))])
+                cls_lists.extend(cls_list)
+            split_info = dict(zip(cls_lists, dict_val))
+            # split_info = defaultdict(lambda: random.choices(split_population, split_weights)[0], split_info)
+
+        data_list = make_list(data_root, label_list, split_info)
+        if file_write:
+            print(f'make {split_info_path}')
+            with split_info_path.open('wb') as wf:
+                split_info = dict(split_info)
+                pickle.dump(split_info, wf)
     return data_list
 
 def preprocess_data(data_list, padding, padding_size, use_shift, use_bbox,

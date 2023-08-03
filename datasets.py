@@ -7,6 +7,7 @@
 
 
 import os
+import sys
 import torch
 import pickle
 import cv2
@@ -110,13 +111,14 @@ def build_transform(is_train, args):
     t.append(transforms.Normalize(mean, std))
     return transforms.Compose(t)
 
-def get_split_data(data_root, test_r=0.1, val_r=0.1, file_write=False, label_list=None):
+def get_split_data(data_root, test_r=0.1, val_r=0.1, file_write=False, label_list=None, use_cropimg=False):
     return preprocess_data.split_data(
         data_root=data_root, 
         test_ratio=test_r, 
         val_ratio=val_r, 
         label_list=label_list,  # ['positive', 'negative']
-        file_write=file_write)
+        file_write=file_write,
+        use_cropimg=use_cropimg)
 
 
 # Dataset Class 
@@ -138,6 +140,7 @@ class PotholeDataset(Dataset):
         self.imsave = args.imsave
         self.upsample = args.upsample
         self.use_class = args.use_class
+        self.use_cropimg = args.use_cropimg
         self.get_crop()
 
     def __len__(self):
@@ -154,17 +157,26 @@ class PotholeDataset(Dataset):
                 continue
             # image_path = self.data_path / v.data_set / v.label / v.image_path
             image_path = v.data_set / v.image_path
-            crop_img = preprocess_data.crop_image(
-                image_path = image_path, 
-                bbox = v.bbox, 
-                padding = self.padding, 
-                padding_size = self.padding_size, 
-                use_shift = self.use_shift, 
-                use_bbox = self.use_bbox, 
-                imsave = self.imsave
-            )
-
-            crop_img = cv2.resize(crop_img, (self.input_size, self.input_size))
+            if self.use_cropimg:
+                try:
+                    crop_img = cv2.imread(str(image_path))
+                except:
+                    print(image_path)
+                    sys.exit(1)
+            else:
+                crop_img = preprocess_data.crop_image(
+                    image_path = image_path, 
+                    bbox = v.bbox, 
+                    padding = self.padding, 
+                    padding_size = self.padding_size, 
+                    use_shift = self.use_shift, 
+                    use_bbox = self.use_bbox, 
+                    imsave = self.imsave
+                )
+            try:
+                crop_img = cv2.resize(crop_img, (self.input_size, self.input_size))
+            except:
+                print(image_path)
             if (crop_img.shape[-1]==3):
                 crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
             pil_image=Image.fromarray(crop_img)
