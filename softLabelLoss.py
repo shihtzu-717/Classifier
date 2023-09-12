@@ -35,9 +35,12 @@ class softLabelLoss(nn.Module):
                 if t == 0: # amb_neg
                     onehot[i][0] = self.soft_ratio
                     onehot[i][1] = 1-self.soft_ratio
+                # elif t == 1: # amb_pos
+                #     onehot[i][0] = 1-self.soft_ratio
+                #     onehot[i][1] = self.soft_ratio
                 elif t == 1: # amb_pos
-                    onehot[i][0] = 1-self.soft_ratio
-                    onehot[i][1] = self.soft_ratio
+                    onehot[i][0] = 1-self.label_ratio
+                    onehot[i][1] = self.label_ratio
                 elif t == 2: # neg
                     onehot[i][0] = self.label_ratio
                     onehot[i][1] = 1-self.label_ratio
@@ -95,8 +98,6 @@ class softLabelLoss(nn.Module):
                     #     onehot[i][3] = self.label_ratio
                     #     onehot[i][2] = 1-self.label_ratio
 
-                    
-
                 # type == 2 : amb_neg + neg = 1
                 elif self.soft_type == 2:
                     if t == 0: # amb_neg
@@ -110,22 +111,7 @@ class softLabelLoss(nn.Module):
                         onehot[i][0] = 1-self.label_ratio
                     elif t == 3: # pos
                         onehot[i][3] = self.label_ratio
-                        onehot[i][1] = 1-self.label_ratio
-                
-                # # type == 3 : amb_neg(0.5) + neg(0.5) = 1
-                # elif self.soft_type == 3:
-                #     if t == 0: # amb_neg
-                #         onehot[i][0] = 0.5
-                #         onehot[i][2] = 0.5
-                #     elif t == 1: # amb_pos
-                #         onehot[i][1] = 0.5
-                #         onehot[i][3] = 0.5
-                #     elif t == 2: # neg
-                #         onehot[i][2] = self.label_ratio
-                #         onehot[i][3] = 1-self.label_ratio
-                #     elif t == 3: # pos
-                #         onehot[i][3] = self.label_ratio
-                #         onehot[i][2] = 1-self.label_ratio                
+                        onehot[i][1] = 1-self.label_ratio            
                 
         return onehot
 

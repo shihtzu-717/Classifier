@@ -140,7 +140,7 @@ def main():
     use_shift = args.use_shift
     use_class = args.use_class
 
-    images_list = glob(str(data_root /'**' / 'images' / '*.jpg'), recursive=True) + glob(str(data_root /'**' / 'images' / '*.png'), recursive=True)
+    images_list = glob(str(data_root / '**' / 'images' / '*.jpg'), recursive=True) + glob(str(data_root / '**' / 'images' / '*.png'), recursive=True)
     print(len(images_list))
     for idx, img in tqdm(enumerate(images_list)):
         annot_path = find_annotation(img)

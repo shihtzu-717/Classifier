@@ -26,7 +26,7 @@ from optim_factory import create_optimizer, LayerDecayValueAssigner
 
 from datasets import build_dataset, PotholeDataset, get_split_data
 from preprocess_data import make_dataset_file, make_crop_dataset_file
-from engine import train_one_epoch, evaluate, prediction
+from engine import train_one_epoch, evaluate, prediction, prediction_several_models
 
 from utils import NativeScalerWithGradNormCount as NativeScaler
 import utils
@@ -257,6 +257,8 @@ def get_args_parser():
     parser.add_argument('--txt_type', type=str2bool, required=True, default=False, help='Data input type is txt file')
     parser.add_argument('--train_txt_path', type=str, default="", help='Train Data Input Path')
     parser.add_argument('--valid_txt_path', type=str, default="", help='Validation Data Input Path')
+    parser.add_argument('--conf', type=float, default="0.0", help='Confidence Level')
+    parser.add_argument('--several_models', type=str2bool, default=False, help='Use Several Models')
 
     return parser
 
@@ -398,7 +400,10 @@ def main(args):
     
     # Prediction 실행 시
     if args.pred:
-        prediction(args, device)
+        if args.several_models:
+            prediction_several_models(args, device)
+        else:
+            prediction(args, device)
         return
 
     # Evlaluation 실행 시

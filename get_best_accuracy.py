@@ -3,7 +3,7 @@ import json
 import natsort # python3 get_best_accuracy.py 로 실행
 import argparse
 
-logs = natsort.natsorted(glob.glob('results/230710_set1-12/*/*nbclss_2*/log.txt'))
+logs = natsort.natsorted(glob.glob('results/230801_generate_image/*/*nbclss_*/log.txt'))
 
 for log in logs:
     model = log.split('/')[-2]
